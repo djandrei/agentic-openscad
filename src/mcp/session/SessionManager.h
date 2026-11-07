@@ -31,6 +31,10 @@ public:
   std::vector<ProjectSession *> sessions() const;
   ProjectSession *find(const std::string& idOrPath) const;
   ProjectSession *current() const { return current_; }
+  // Called whenever the current session changes (open, resolve by argument,
+  // close); the viewer follows the project of the last tool call.
+  using CurrentChanged = std::function<void(ProjectSession *)>;
+  void setCurrentChanged(CurrentChanged callback) { currentChanged_ = std::move(callback); }
 
   // Picks the session a tool call refers to: args["project"] when given,
   // otherwise the current one. Throws ToolError when nothing applies.
@@ -39,8 +43,11 @@ public:
 private:
   std::string mode_;
   Factory factory_;
+  void setCurrent(ProjectSession *session);
+
   std::vector<std::unique_ptr<ProjectSession>> sessions_;
   ProjectSession *current_ = nullptr;
+  CurrentChanged currentChanged_;
 };
 
 }  // namespace mcp

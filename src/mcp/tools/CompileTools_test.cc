@@ -8,7 +8,7 @@
 #include "core/Builtins.h"
 #include "core/parsersettings.h"
 #include "platform/PlatformUtils.h"
-#include "mcp/headless/HeadlessSession.h"
+#include "mcp/session/EngineSession.h"
 #include "mcp/protocol/Registry.h"
 #include "mcp/protocol/Server.h"
 #include "mcp/session/MessageLog.h"
@@ -27,7 +27,7 @@ struct Fixture {
   mcp::ResourceRegistry resources;
   mcp::PromptRegistry prompts;
   mcp::SessionManager sessions{"headless", [](std::shared_ptr<mcp::Project> project) {
-                                 return std::make_unique<mcp::HeadlessSession>(std::move(project));
+                                 return std::make_unique<mcp::EngineSession>(std::move(project));
                                }};
   mcp::Server server{mcp::ServerInfo{"t", "1", ""}, tools, resources, prompts};
 

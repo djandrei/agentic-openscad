@@ -1,4 +1,4 @@
-#include "mcp/headless/HeadlessSession.h"
+#include "mcp/session/EngineSession.h"
 
 #include <chrono>
 #include <filesystem>
@@ -15,21 +15,21 @@
 
 namespace mcp {
 
-HeadlessSession::HeadlessSession(std::shared_ptr<Project> project) : ProjectSession(std::move(project))
+EngineSession::EngineSession(std::shared_ptr<Project> project) : ProjectSession(std::move(project))
 {
   camera_.viewall = true;
   camera_.autocenter = true;
 }
 
-nlohmann::json HeadlessSession::status() const
+nlohmann::json EngineSession::status() const
 {
   return nlohmann::json{{"busy", false},
-                        {"paused", false},
+                        {"paused", paused_},
                         {"hasGeometry", last_.geometry != nullptr},
                         {"lastFile", lastFile_}};
 }
 
-CompileOutcome HeadlessSession::compile(const CompileRequest& request)
+CompileOutcome EngineSession::compile(const CompileRequest& request)
 {
   std::filesystem::path file;
   try {
@@ -60,12 +60,34 @@ CompileOutcome HeadlessSession::compile(const CompileRequest& request)
     if (request.mode == CompileMode::Preview) result.geometry = last_.geometry;
     last_ = std::move(result);
     lastFile_ = project().relative(file);
+    lastMode_ = request.mode;
   }
   finishOutcome(outcome, firstSeq, evaluated);
+  if (observer_) observer_->compileFinished(*this, request, outcome);
   return outcome;
 }
 
-void HeadlessSession::ensureCompiled(CompileMode mode, double timeoutSeconds)
+void EngineSession::fileWritten(const FileChange& change)
+{
+  if (observer_) observer_->fileWritten(*this, change);
+}
+
+void EngineSession::fileRemoved(const std::string& relativePath)
+{
+  if (observer_) observer_->fileRemoved(*this, relativePath);
+}
+
+void EngineSession::fileRenamed(const std::string& from, const std::string& to)
+{
+  if (observer_) observer_->fileRenamed(*this, from, to);
+}
+
+void EngineSession::librariesChanged()
+{
+  if (observer_) observer_->librariesChanged(*this);
+}
+
+void EngineSession::ensureCompiled(CompileMode mode, double timeoutSeconds)
 {
   const bool haveTree = last_.rootNode != nullptr;
   const bool haveGeometry = last_.geometry != nullptr;
@@ -82,25 +104,26 @@ void HeadlessSession::ensureCompiled(CompileMode mode, double timeoutSeconds)
   }
 }
 
-nlohmann::json HeadlessSession::cameraGet() const
+nlohmann::json EngineSession::cameraGet() const
 {
   return view::cameraToJson(camera_);
 }
 
-nlohmann::json HeadlessSession::cameraSet(const nlohmann::json& spec)
+nlohmann::json EngineSession::cameraSet(const nlohmann::json& spec)
 {
   const bool fit = view::applyCameraSpec(camera_, spec);
   camera_.viewall = fit;
   camera_.autocenter = fit;
+  if (observer_) observer_->cameraChanged(*this);
   return view::cameraToJson(camera_);
 }
 
-nlohmann::json HeadlessSession::viewOptionsGet() const
+nlohmann::json EngineSession::viewOptionsGet() const
 {
   return view::viewOptionsToJson(viewOptions_, colorScheme_, mode_);
 }
 
-nlohmann::json HeadlessSession::viewOptionsSet(const nlohmann::json& spec)
+nlohmann::json EngineSession::viewOptionsSet(const nlohmann::json& spec)
 {
   view::applyViewOptionSpec(viewOptions_, colorScheme_, spec);
   if (spec.contains("mode")) {
@@ -110,10 +133,11 @@ nlohmann::json HeadlessSession::viewOptionsSet(const nlohmann::json& spec)
     }
     mode_ = mode;
   }
+  if (observer_) observer_->viewOptionsChanged(*this);
   return viewOptionsGet();
 }
 
-std::vector<view::CaptureImage> HeadlessSession::capture(const CaptureRequest& request)
+std::vector<view::CaptureImage> EngineSession::capture(const CaptureRequest& request)
 {
   const std::string mode = request.mode.empty() ? mode_ : request.mode;
   if (mode != "preview" && mode != "render" && mode != "thrownTogether") {
@@ -153,18 +177,21 @@ std::vector<view::CaptureImage> HeadlessSession::capture(const CaptureRequest& r
     }
     lastCamera = camera;
   }
-  if (request.keep) camera_ = lastCamera;
+  if (request.keep) {
+    camera_ = lastCamera;
+    if (observer_) observer_->cameraChanged(*this);
+  }
   return images;
 }
 
-nlohmann::json HeadlessSession::geometryInfo()
+nlohmann::json EngineSession::geometryInfo()
 {
   if (!last_.geometry) throw ToolError("no rendered geometry: call render first");
   return view::geometryInfo(last_.geometry);
 }
 
-nlohmann::json HeadlessSession::exportGeometry(const std::string& format, const std::string& path,
-                                               const nlohmann::json& options)
+nlohmann::json EngineSession::exportGeometry(const std::string& format, const std::string& path,
+                                             const nlohmann::json& options)
 {
   if (!last_.geometry) throw ToolError("no rendered geometry: call render first");
   std::filesystem::path target;
@@ -180,7 +207,7 @@ nlohmann::json HeadlessSession::exportGeometry(const std::string& format, const 
   return result;
 }
 
-std::filesystem::path HeadlessSession::resolveFile(const std::string& file) const
+std::filesystem::path EngineSession::resolveFile(const std::string& file) const
 {
   std::filesystem::path path;
   try {
@@ -193,7 +220,7 @@ std::filesystem::path HeadlessSession::resolveFile(const std::string& file) cons
   return path;
 }
 
-nlohmann::json HeadlessSession::paramsGet(const std::string& file)
+nlohmann::json EngineSession::paramsGet(const std::string& file)
 {
   const auto path = resolveFile(file);
   const auto relative = project().relative(path);
@@ -209,8 +236,8 @@ nlohmann::json HeadlessSession::paramsGet(const std::string& file)
     {"presets", param::presetNames(path)}};
 }
 
-nlohmann::json HeadlessSession::paramsSet(const std::string& file, const nlohmann::json& values,
-                                          const std::string& preset, bool reset)
+nlohmann::json EngineSession::paramsSet(const std::string& file, const nlohmann::json& values,
+                                        const std::string& preset, bool reset)
 {
   const auto path = resolveFile(file);
   const auto relative = project().relative(path);
@@ -229,10 +256,11 @@ nlohmann::json HeadlessSession::paramsSet(const std::string& file, const nlohman
     auto& current = parameterValues_[relative];
     for (const auto& [name, value] : param::fromJson(values)) current[name] = value;
   }
+  if (observer_) observer_->paramsChanged(*this, relative);
   return paramsGet(file);
 }
 
-nlohmann::json HeadlessSession::presetsList(const std::string& file)
+nlohmann::json EngineSession::presetsList(const std::string& file)
 {
   const auto path = resolveFile(file);
   nlohmann::json list = nlohmann::json::array();
@@ -244,7 +272,7 @@ nlohmann::json HeadlessSession::presetsList(const std::string& file)
                         {"presets", list}};
 }
 
-nlohmann::json HeadlessSession::presetSave(const std::string& file, const std::string& name)
+nlohmann::json EngineSession::presetSave(const std::string& file, const std::string& name)
 {
   if (name.empty()) throw ToolError("preset name must not be empty");
   const auto path = resolveFile(file);
@@ -255,6 +283,7 @@ nlohmann::json HeadlessSession::presetSave(const std::string& file, const std::s
   const auto values = parameterValues_.find(relative);
   if (values != parameterValues_.end()) objects.importValues(values->second);
   param::writePreset(path, objects.exportValues(name));
+  if (observer_) observer_->paramsChanged(*this, relative);
   return presetsList(file);
 }
 

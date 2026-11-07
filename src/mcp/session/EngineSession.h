@@ -12,20 +12,33 @@
 #include "json/json.hpp"
 #include "mcp/engine/CompileEngine.h"
 #include "mcp/session/ProjectSession.h"
+#include "mcp/session/SessionObserver.h"
 
 class Geometry;
 
 namespace mcp {
 
-// Project session without a GUI. Compiles and renders through the same code
-// path as the command line; keeps a virtual camera and view options for
-// offscreen captures.
-class HeadlessSession : public ProjectSession
+// The one session implementation: compiles and renders through the same
+// code path as the command line, keeps the camera, view options and
+// customizer overrides the agent set, and reports every change to an
+// optional observer (the viewer). Used by headless and viewer mode alike.
+class EngineSession : public ProjectSession
 {
 public:
-  explicit HeadlessSession(std::shared_ptr<Project> project);
+  explicit EngineSession(std::shared_ptr<Project> project);
+
+  void setObserver(SessionObserver *observer) { observer_ = observer; }
+  SessionObserver *observer() const { return observer_; }
 
   nlohmann::json status() const override;
+  bool paused() const override { return paused_; }
+  void setPaused(bool paused) { paused_ = paused; }
+
+  void fileWritten(const FileChange& change) override;
+  void fileRemoved(const std::string& relativePath) override;
+  void fileRenamed(const std::string& from, const std::string& to) override;
+  void librariesChanged() override;
+
   CompileOutcome compile(const CompileRequest& request) override;
   nlohmann::json cameraGet() const override;
   nlohmann::json cameraSet(const nlohmann::json& spec) override;
@@ -41,16 +54,25 @@ public:
   nlohmann::json presetsList(const std::string& file) override;
   nlohmann::json presetSave(const std::string& file, const std::string& name) override;
 
-  // Geometry of the last successful render, for geometry queries and exports.
+  // State a viewer mirrors.
+  const EngineResult& lastResult() const { return last_; }
+  const std::string& lastFile() const { return lastFile_; }
+  CompileMode lastMode() const { return lastMode_; }
   std::shared_ptr<const Geometry> lastGeometry() const { return last_.geometry; }
+  const Camera& camera() const { return camera_; }
+  const ViewOptions& viewOptions() const { return viewOptions_; }
+  const std::string& colorScheme() const { return colorScheme_; }
+  const std::string& viewMode() const { return mode_; }  // preview | render | thrownTogether
 
 private:
   void ensureCompiled(CompileMode mode, double timeoutSeconds);
-
   std::filesystem::path resolveFile(const std::string& file) const;
 
+  SessionObserver *observer_ = nullptr;
+  bool paused_ = false;
   EngineResult last_;
   std::string lastFile_;
+  CompileMode lastMode_ = CompileMode::Check;
   std::map<std::string, ParameterSet> parameterValues_;  // per relative file
   Camera camera_;
   ViewOptions viewOptions_;

@@ -14,7 +14,7 @@
 
 #include "gui/QSettingsCached.h"
 #include "mcp/BuildInfo.h"
-#include "mcp/headless/HeadlessSession.h"
+#include "mcp/session/EngineSession.h"
 #include "mcp/session/MessageLog.h"
 #include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
@@ -56,7 +56,7 @@ ViewerBridge::ViewerBridge(Options options, ViewerWindow *window)
     options_(std::move(options)),
     window_(window),
     sessions_("viewer", [](std::shared_ptr<Project> project) {
-      return std::make_unique<HeadlessSession>(std::move(project));
+      return std::make_unique<EngineSession>(std::move(project));
     })
 {
   MessageLog::instance().attach();

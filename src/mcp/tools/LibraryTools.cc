@@ -53,9 +53,11 @@ void registerLibraryTools(ToolRegistry& tools, SessionManager& sessions)
          {"additionalProperties", false}},
     [&sessions](const json& args) {
       auto& session = sessions.resolve(args);
-      return ToolResult::data(library::LibraryManager(session.project())
-                                .install(args["library"].get<std::string>(), args.value("ref", ""),
-                                         args.value("dirName", "")));
+      nlohmann::json result =
+        library::LibraryManager(session.project())
+          .install(args["library"].get<std::string>(), args.value("ref", ""), args.value("dirName", ""));
+      session.librariesChanged();
+      return ToolResult::data(result);
     }});
 
   tools.add(ToolDef{
@@ -66,8 +68,10 @@ void registerLibraryTools(ToolRegistry& tools, SessionManager& sessions)
          {"additionalProperties", false}},
     [&sessions](const json& args) {
       auto& session = sessions.resolve(args);
-      return ToolResult::data(
-        library::LibraryManager(session.project()).remove(args["name"].get<std::string>()));
+      nlohmann::json result =
+        library::LibraryManager(session.project()).remove(args["name"].get<std::string>());
+      session.librariesChanged();
+      return ToolResult::data(result);
     }});
 
   tools.add(ToolDef{

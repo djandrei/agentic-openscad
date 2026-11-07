@@ -84,6 +84,8 @@ public:
   virtual void fileWritten(const FileChange& /*change*/) {}
   virtual void fileRemoved(const std::string& /*relativePath*/) {}
   virtual void fileRenamed(const std::string& /*from*/, const std::string& /*to*/) {}
+  // Invoked after a library was installed or removed in the project.
+  virtual void librariesChanged() {}
 
   // Parses / previews / renders a project file and returns the structured
   // messages of that run. Throws ToolError when the file is missing, the

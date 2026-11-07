@@ -16,7 +16,6 @@ list(APPEND CORE_SOURCES
   src/mcp/engine/ParamEngine.cc
   src/mcp/engine/ViewEngine.cc
   src/mcp/headless/HeadlessMain.cc
-  src/mcp/headless/HeadlessSession.cc
   src/mcp/library/Archive.cc
   src/mcp/library/BundledRegistry.cc
   src/mcp/library/Download.cc
@@ -28,6 +27,7 @@ list(APPEND CORE_SOURCES
   src/mcp/protocol/Schema.cc
   src/mcp/protocol/Server.cc
   src/mcp/session/Diff.cc
+  src/mcp/session/EngineSession.cc
   src/mcp/session/FileStore.cc
   src/mcp/session/MessageLog.cc
   src/mcp/session/Project.cc

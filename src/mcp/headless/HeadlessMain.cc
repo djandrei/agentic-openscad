@@ -17,7 +17,7 @@
 #include <thread>
 
 #include "mcp/BuildInfo.h"
-#include "mcp/headless/HeadlessSession.h"
+#include "mcp/session/EngineSession.h"
 #include "mcp/protocol/Registry.h"
 #include "mcp/protocol/Server.h"
 #include "mcp/session/MessageLog.h"
@@ -112,7 +112,7 @@ int runHeadless(const Options& options)
   ResourceRegistry resources;
   PromptRegistry prompts;
   SessionManager sessions("headless", [](std::shared_ptr<Project> project) {
-    return std::make_unique<HeadlessSession>(std::move(project));
+    return std::make_unique<EngineSession>(std::move(project));
   });
   MessageLog::instance().attach();
   registerCoreTools(tools, sessions);
