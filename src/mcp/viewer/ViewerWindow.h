@@ -7,9 +7,12 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 
+#include "mcp/engine/CompileEngine.h"
+#include "mcp/session/ProjectSession.h"
 #include "mcp/session/SessionObserver.h"
 
 class QCloseEvent;
@@ -81,7 +84,15 @@ private:
   // Selects the item of currentFile_ and expands the folders above it.
   void selectCurrentFile();
   void showFile(const std::string& relativePath, const FileChange *change);
-  void refreshMessages(const CompileOutcome *outcome);
+  // The person's own preview of a file (double-click in the tree). It is
+  // compiled outside the session, so nothing the agent observes changes,
+  // and it is dropped by the agent's next compile, camera or view action.
+  void inspectFile(const std::string& relativePath);
+  bool clearInspection();
+  // Drops the inspection and shows the agent's scene and messages again.
+  // Returns false when nothing was being inspected.
+  bool snapBack();
+  void refreshMessages(const CompileOutcome *outcome, const QString& header = QString());
   void refreshParameters();
   void appendChange(const FileChange& change);
 
@@ -128,6 +139,10 @@ private:
 
   EngineSession *session_ = nullptr;
   std::string currentFile_;
+  std::optional<CompileOutcome> lastOutcome_;  // the agent's last compile, for the Messages panel
+  EngineResult inspection_;                    // the person's inspection, if inspectionFile_ is set
+  std::string inspectionFile_;
+  CompileOutcome inspectionOutcome_;
   std::array<Panel, PanelCount> panels_;
   QToolButton *viewOnlyButton_ = nullptr;
   bool switchingViewOnly_ = false;

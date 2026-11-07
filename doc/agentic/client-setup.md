@@ -33,7 +33,10 @@ in the status bar makes every tool call fail until resumed; the person may
 also orbit the 3D view with the mouse (the agent's camera remains the
 reference and the view snaps back on its next camera or view action) and
 click a file in the tree to look at it (folders collapse and expand;
-`libraries` starts collapsed). Each panel has a close button;
+`libraries` starts collapsed). A double-click on a `.scad` file previews
+that file alone in the 3D view, marked in the status bar as your
+selection; the agent's own model is not touched and comes back on its
+next compile, camera or view action. Each panel has a close button;
 the toggle buttons in the status bar bring panels back, and *View only*
 (or `F11`) hides every panel so the 3D view fills the window, then
 restores the same panels. A hidden panel whose content changed shows a

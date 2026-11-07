@@ -41,7 +41,9 @@ and versioned (content hash) so the agent can detect concurrent changes.
   them all at once, and a hidden panel that receives new content shows a
   dot on its button (red for errors). The layout is remembered across
   starts. The person can orbit the view with the mouse, pick a file to
-  look at, and press *Pause*; nothing else is clickable. The classic
+  look at, double-click a `.scad` file to preview it by itself until the
+  agent's next compile or camera action, and press *Pause*; nothing else
+  is clickable. The classic
   OpenSCAD GUI remains reachable with `--classic` for debugging.
 - *Headless*: `openscad --mcp-stdio --project DIR` (spawned by the MCP
   client over stdin/stdout), `openscad --mcp-port N --mcp-headless`, or

@@ -27,6 +27,7 @@
 #include <Qsci/qsciscintilla.h>
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -46,8 +47,10 @@
 #include "gui/QGLView.h"
 #include "gui/QSettingsCached.h"
 #include "gui/ScadLexer.h"
+#include "mcp/engine/CompileEngine.h"
 #include "mcp/session/EngineSession.h"
 #include "mcp/session/FileStore.h"
+#include "mcp/session/MessageLog.h"
 #ifdef ENABLE_OPENCSG
 #include "glview/preview/OpenCSGRenderer.h"
 #endif
@@ -118,15 +121,16 @@ void ViewerWindow::buildUi()
   files_->setExpandsOnDoubleClick(false);  // a single click on a folder toggles it
   files_->setToolTip(
     tr("Project files; the agent's last touched file is selected. Click a file "
-       "to look at it, a folder to collapse or expand it."));
+       "to look at it, a folder to collapse or expand it. Double-click a .scad file "
+       "to preview it until the agent's next compile or camera action."));
   connect(files_, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *item) {
     if (item->data(0, kIsFolderRole).toBool()) item->setExpanded(!item->isExpanded());
     else showFile(item->data(0, kPathRole).toString().toStdString(), nullptr);
   });
   connect(files_, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *item) {
-    if (!item->data(0, kIsFolderRole).toBool()) {
-      showFile(item->data(0, kPathRole).toString().toStdString(), nullptr);
-    }
+    if (item->data(0, kIsFolderRole).toBool()) return;
+    const std::string path = item->data(0, kPathRole).toString().toStdString();
+    if (path.size() > 5 && path.compare(path.size() - 5, 5, ".scad") == 0) inspectFile(path);
   });
   connect(files_, &QTreeWidget::itemCollapsed, this, [this](QTreeWidgetItem *item) {
     collapsedFolders_.insert(item->data(0, kPathRole).toString().toStdString());
@@ -395,6 +399,8 @@ void ViewerWindow::showSession(EngineSession *session)
   selectPanes(session_ ? session_->project().root().string() : std::string());
   lastCompile_.clear();
   currentFile_.clear();
+  lastOutcome_.reset();
+  clearInspection();
   collapsedFolders_ = {"libraries"};  // installed libraries are not the project's own work
   refreshFileList();
   if (session_) {
@@ -415,7 +421,7 @@ void ViewerWindow::showSession(EngineSession *session)
 std::shared_ptr<Renderer> ViewerWindow::buildRenderer()
 {
   if (!session_) return nullptr;
-  const EngineResult& result = session_->lastResult();
+  const EngineResult& result = inspectionFile_.empty() ? session_->lastResult() : inspection_;
   const std::string& viewMode = session_->viewMode();
   const bool wantRender = viewMode == "render" ||
                           (session_->lastMode() == CompileMode::Render && viewMode != "thrownTogether");
@@ -606,11 +612,61 @@ void ViewerWindow::appendChange(const FileChange& change)
 
 // ---- messages and parameters ---------------------------------------------
 
-void ViewerWindow::refreshMessages(const CompileOutcome *outcome)
+void ViewerWindow::inspectFile(const std::string& relativePath)
+{
+  if (!session_) return;
+  std::filesystem::path file;
+  try {
+    file = session_->project().resolve(relativePath);
+  } catch (const std::invalid_argument&) {
+    return;
+  }
+  const auto firstSeq = MessageLog::instance().lastSeq();
+  const auto started = std::chrono::steady_clock::now();
+  inspection_ = CompileEngine::run(file, CompileMode::Preview, 120);
+  inspectionFile_ = relativePath;
+
+  CompileOutcome outcome;
+  outcome.parsed = inspection_.parsed;
+  outcome.timedOut = inspection_.timedOut;
+  outcome.millis =
+    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+  outcome.messages = MessageLog::instance().since(firstSeq);
+  const auto counts = MessageLog::count(outcome.messages);
+  outcome.errors = counts.errors;
+  outcome.warnings = counts.warnings;
+  outcome.ok = inspection_.instantiated && outcome.parsed && outcome.errors == 0 && !outcome.timedOut;
+  inspectionOutcome_ = outcome;
+
+  refreshScene();
+  view_->viewAll();  // the agent's orientation, fitted to this file
+  view_->update();
+  refreshMessages(&outcome, tr("%1 — your selection").arg(QString::fromStdString(relativePath)));
+}
+
+bool ViewerWindow::clearInspection()
+{
+  if (inspectionFile_.empty()) return false;
+  inspectionFile_.clear();
+  inspection_ = EngineResult();
+  inspectionOutcome_ = CompileOutcome();
+  return true;
+}
+
+bool ViewerWindow::snapBack()
+{
+  if (!clearInspection()) return false;
+  refreshScene();
+  refreshMessages(lastOutcome_ ? &*lastOutcome_ : nullptr);
+  return true;
+}
+
+void ViewerWindow::refreshMessages(const CompileOutcome *outcome, const QString& header)
 {
   messages_->clear();
   if (!outcome) return;
   QString html;
+  if (!header.isEmpty()) html += QStringLiteral("<div><i>%1</i></div>").arg(header.toHtmlEscaped());
   for (const auto& message : outcome->messages) {
     if (message.severity == "info" || message.severity == "trace") continue;
     QString where;
@@ -627,7 +683,9 @@ void ViewerWindow::refreshMessages(const CompileOutcome *outcome)
       QStringLiteral("<div><span style='color:%1'><b>%2</b></span>%3 %4</div>")
         .arg(severityColor(message.severity), escaped(message.severity), where, escaped(message.text));
   }
-  if (html.isEmpty()) html = tr("<div style='color:#1b7f3b'>no errors, no warnings</div>");
+  if (outcome->errors == 0 && outcome->warnings == 0) {
+    html += tr("<div style='color:#1b7f3b'>no errors, no warnings</div>");
+  }
   messages_->setHtml(html);
 }
 
@@ -674,8 +732,15 @@ void ViewerWindow::updateStatus()
   QString text = project;
   if (!session_->lastFile().empty()) text += "  ·  " + QString::fromStdString(session_->lastFile());
   if (!lastCompile_.isEmpty()) text += "  ·  " + lastCompile_;
+  if (!inspectionFile_.empty()) {
+    text += "  ·  " + tr("showing %1: %2 errors, %3 warnings (your selection)")
+                        .arg(QString::fromStdString(inspectionFile_))
+                        .arg(inspectionOutcome_.errors)
+                        .arg(inspectionOutcome_.warnings);
+  }
   if (pauseButton_->isChecked()) text += "  ·  " + tr("PAUSED");
   statusLabel_->setText(text);
+  statusLabel_->setToolTip(text);  // the full text when the label is cut short
 }
 
 // ---- SessionObserver ------------------------------------------------------
@@ -731,6 +796,7 @@ void ViewerWindow::compileFinished(EngineSession& session, const CompileRequest&
                    .arg(outcome.errors)
                    .arg(outcome.warnings)
                    .arg(static_cast<int>(outcome.millis));
+  lastOutcome_ = outcome;
   refreshMessages(&outcome);
   if (outcome.errors > 0 || !outcome.ok) setPanelAlert(PanelMessages, true);
   else if (outcome.warnings > 0) setPanelAlert(PanelMessages, false);
@@ -738,18 +804,21 @@ void ViewerWindow::compileFinished(EngineSession& session, const CompileRequest&
     updateStatus();
     return;
   }
+  clearInspection();
   refreshParameters();
   refreshScene();
 }
 
 void ViewerWindow::cameraChanged(EngineSession& session)
 {
-  if (&session == session_) applyCamera();
+  if (&session != session_) return;
+  if (!snapBack()) applyCamera();
 }
 
 void ViewerWindow::viewOptionsChanged(EngineSession& session)
 {
-  if (&session == session_) refreshScene();
+  if (&session != session_) return;
+  if (!snapBack()) refreshScene();
 }
 
 void ViewerWindow::paramsChanged(EngineSession& session, const std::string&)
