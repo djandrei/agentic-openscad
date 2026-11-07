@@ -32,7 +32,8 @@ The viewer follows the project of the agent's last tool call. *Pause agent*
 in the status bar makes every tool call fail until resumed; the person may
 also orbit the 3D view with the mouse (the agent's camera remains the
 reference and the view snaps back on its next camera or view action) and
-click a file in the list to look at it. Each panel has a close button;
+click a file in the tree to look at it (folders collapse and expand;
+`libraries` starts collapsed). Each panel has a close button;
 the toggle buttons in the status bar bring panels back, and *View only*
 (or `F11`) hides every panel so the 3D view fills the window, then
 restores the same panels. A hidden panel whose content changed shows a

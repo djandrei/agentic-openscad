@@ -33,7 +33,7 @@ and versioned (content hash) so the agent can detect concurrent changes.
   `127.0.0.1` with a bearer token. The only window is the viewer: the 3D
   view showing the last preview or render with the agent's camera and view
   options, a read-only code pane with the file the agent last touched and
-  its changed lines highlighted, the project's file list, the customizer
+  its changed lines highlighted, the project's files as a collapsible tree, the customizer
   parameters, the messages of the last compile, the tool-call log and the
   change stream. Every panel can be closed; the view takes the freed
   space, and with all panels closed it fills the window. Toggle buttons in

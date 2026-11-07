@@ -7,6 +7,7 @@
 #include <array>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 
 #include "mcp/session/SessionObserver.h"
@@ -15,11 +16,12 @@ class QCloseEvent;
 class QDockWidget;
 class QGLView;
 class QLabel;
-class QListWidget;
 class QPlainTextEdit;
 class QTableWidget;
 class QTextBrowser;
 class QToolButton;
+class QTreeWidget;
+class QTreeWidgetItem;
 class QsciScintilla;
 class QStackedWidget;
 class Renderer;
@@ -75,6 +77,8 @@ private:
   void updateStatus();
   std::shared_ptr<Renderer> buildRenderer();
   void refreshFileList();
+  // Selects the item of currentFile_ and expands the folders above it.
+  void selectCurrentFile();
   void showFile(const std::string& relativePath, const FileChange *change);
   void refreshMessages(const CompileOutcome *outcome);
   void refreshParameters();
@@ -128,7 +132,8 @@ private:
   bool switchingViewOnly_ = false;
   QGLView *view_;
   QsciScintilla *code_;
-  QListWidget *files_;
+  QTreeWidget *files_;
+  std::set<std::string> collapsedFolders_;  // folders the person collapsed; kept across rebuilds
   QTextBrowser *messages_;
   QStackedWidget *activityStack_;
   QStackedWidget *changesStack_;

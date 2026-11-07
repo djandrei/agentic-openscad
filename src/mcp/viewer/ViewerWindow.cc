@@ -9,23 +9,26 @@
 #include <QIcon>
 #include <QKeySequence>
 #include <QLabel>
-#include <QListWidget>
 #include <QPainter>
 #include <QPixmap>
 #include <QPlainTextEdit>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QStyle>
 #include <QTableWidget>
 #include <QTextBrowser>
 #include <QTime>
 #include <QTimer>
 #include <QToolButton>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 
 #include <Qsci/qsciscintilla.h>
 
 #include <algorithm>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -51,6 +54,29 @@
 #ifdef ENABLE_CGAL
 #include "glview/cgal/CGALRenderer.h"
 #endif
+
+namespace {
+
+// Item data of the file tree: the path relative to the project root, and
+// whether the item is a folder.
+constexpr int kPathRole = Qt::UserRole;
+constexpr int kIsFolderRole = Qt::UserRole + 1;
+
+// Sorts folders before files, each group alphabetically.
+class FileTreeItem : public QTreeWidgetItem
+{
+public:
+  using QTreeWidgetItem::QTreeWidgetItem;
+  bool operator<(const QTreeWidgetItem& other) const override
+  {
+    const bool folder = data(0, kIsFolderRole).toBool();
+    const bool otherFolder = other.data(0, kIsFolderRole).toBool();
+    if (folder != otherFolder) return folder;
+    return text(0).localeAwareCompare(other.text(0)) < 0;
+  }
+};
+
+}  // namespace
 
 namespace mcp {
 
@@ -86,15 +112,27 @@ void ViewerWindow::buildUi()
   monoFont_ = QFontDatabase::systemFont(QFontDatabase::FixedFont);
   const QFont& mono = monoFont_;
 
-  // Left: file list over the read-only code pane.
-  files_ = new QListWidget(this);
+  // Left: the project's files as a tree over the read-only code pane.
+  files_ = new QTreeWidget(this);
+  files_->setHeaderHidden(true);
+  files_->setExpandsOnDoubleClick(false);  // a single click on a folder toggles it
   files_->setToolTip(
-    tr("Project files; the agent's last touched file is selected. Click to look at another one."));
-  connect(files_, &QListWidget::itemActivated, this, [this](QListWidgetItem *item) {
-    if (item) showFile(item->text().toStdString(), nullptr);
+    tr("Project files; the agent's last touched file is selected. Click a file "
+       "to look at it, a folder to collapse or expand it."));
+  connect(files_, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *item) {
+    if (item->data(0, kIsFolderRole).toBool()) item->setExpanded(!item->isExpanded());
+    else showFile(item->data(0, kPathRole).toString().toStdString(), nullptr);
   });
-  connect(files_, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
-    if (item) showFile(item->text().toStdString(), nullptr);
+  connect(files_, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *item) {
+    if (!item->data(0, kIsFolderRole).toBool()) {
+      showFile(item->data(0, kPathRole).toString().toStdString(), nullptr);
+    }
+  });
+  connect(files_, &QTreeWidget::itemCollapsed, this, [this](QTreeWidgetItem *item) {
+    collapsedFolders_.insert(item->data(0, kPathRole).toString().toStdString());
+  });
+  connect(files_, &QTreeWidget::itemExpanded, this, [this](QTreeWidgetItem *item) {
+    collapsedFolders_.erase(item->data(0, kPathRole).toString().toStdString());
   });
 
   code_ = new QsciScintilla(this);
@@ -357,6 +395,7 @@ void ViewerWindow::showSession(EngineSession *session)
   selectPanes(session_ ? session_->project().root().string() : std::string());
   lastCompile_.clear();
   currentFile_.clear();
+  collapsedFolders_ = {"libraries"};  // installed libraries are not the project's own work
   refreshFileList();
   if (session_) {
     const std::string main =
@@ -441,13 +480,59 @@ void ViewerWindow::refreshFileList()
 {
   files_->clear();
   if (!session_) return;
+  const QIcon folderIcon = style()->standardIcon(QStyle::SP_DirIcon);
+  const QIcon fileIcon = style()->standardIcon(QStyle::SP_FileIcon);
+  std::map<std::string, QTreeWidgetItem *> folders;  // relative path -> item
+  // The item of a folder, creating it and the folders above it on first use.
+  auto folderItem = [&](const std::string& path) {
+    QTreeWidgetItem *parent = files_->invisibleRootItem();
+    std::string prefix;
+    for (size_t start = 0; start <= path.size();) {
+      const size_t slash = std::min(path.find('/', start), path.size());
+      const std::string name = path.substr(start, slash - start);
+      prefix = prefix.empty() ? name : prefix + "/" + name;
+      auto found = folders.find(prefix);
+      if (found == folders.end()) {
+        auto *item = new FileTreeItem(parent, {QString::fromStdString(name)});
+        item->setIcon(0, folderIcon);
+        item->setData(0, kPathRole, QString::fromStdString(prefix));
+        item->setData(0, kIsFolderRole, true);
+        found = folders.emplace(prefix, item).first;
+      }
+      parent = found->second;
+      start = slash + 1;
+    }
+    return parent;
+  };
   bool truncated = false;
   for (const auto& entry : session_->files().list(".", true, false, &truncated)) {
-    files_->addItem(QString::fromStdString(entry.path));
+    const size_t slash = entry.path.rfind('/');
+    const bool inFolder = slash != std::string::npos;
+    QTreeWidgetItem *parent =
+      inFolder ? folderItem(entry.path.substr(0, slash)) : files_->invisibleRootItem();
+    const std::string name = inFolder ? entry.path.substr(slash + 1) : entry.path;
+    auto *item = new FileTreeItem(parent, {QString::fromStdString(name)});
+    item->setIcon(0, fileIcon);
+    item->setData(0, kPathRole, QString::fromStdString(entry.path));
+    item->setData(0, kIsFolderRole, false);
   }
-  for (int i = 0; i < files_->count(); ++i) {
-    if (files_->item(i)->text().toStdString() == currentFile_) files_->setCurrentRow(i);
+  files_->sortItems(0, Qt::AscendingOrder);
+  for (const auto& [path, item] : folders) item->setExpanded(collapsedFolders_.count(path) == 0);
+  selectCurrentFile();
+}
+
+void ViewerWindow::selectCurrentFile()
+{
+  for (QTreeWidgetItemIterator it(files_); *it; ++it) {
+    QTreeWidgetItem *item = *it;
+    if (item->data(0, kIsFolderRole).toBool()) continue;
+    if (item->data(0, kPathRole).toString().toStdString() != currentFile_) continue;
+    for (auto *parent = item->parent(); parent; parent = parent->parent()) parent->setExpanded(true);
+    files_->setCurrentItem(item);
+    files_->scrollToItem(item);
+    return;
   }
+  files_->setCurrentItem(nullptr);
 }
 
 void ViewerWindow::showFile(const std::string& relativePath, const FileChange *change)
@@ -479,9 +564,7 @@ void ViewerWindow::showFile(const std::string& relativePath, const FileChange *c
   } else {
     code_->setFirstVisibleLine(firstVisible);
   }
-  for (int i = 0; i < files_->count(); ++i) {
-    if (files_->item(i)->text().toStdString() == currentFile_) files_->setCurrentRow(i);
-  }
+  selectCurrentFile();
 }
 
 void ViewerWindow::appendChange(const FileChange& change)
