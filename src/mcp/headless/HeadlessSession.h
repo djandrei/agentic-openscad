@@ -1,9 +1,12 @@
 #pragma once
 
+#include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "core/customizer/ParameterSet.h"
 #include "glview/Camera.h"
 #include "io/export.h"
 #include "json/json.hpp"
@@ -32,6 +35,11 @@ public:
   nlohmann::json geometryInfo() override;
   nlohmann::json exportGeometry(const std::string& format, const std::string& path,
                                 const nlohmann::json& options) override;
+  nlohmann::json paramsGet(const std::string& file) override;
+  nlohmann::json paramsSet(const std::string& file, const nlohmann::json& values,
+                           const std::string& preset, bool reset) override;
+  nlohmann::json presetsList(const std::string& file) override;
+  nlohmann::json presetSave(const std::string& file, const std::string& name) override;
 
   // Geometry of the last successful render, for geometry queries and exports.
   std::shared_ptr<const Geometry> lastGeometry() const { return last_.geometry; }
@@ -39,8 +47,11 @@ public:
 private:
   void ensureCompiled(CompileMode mode, double timeoutSeconds);
 
+  std::filesystem::path resolveFile(const std::string& file) const;
+
   EngineResult last_;
   std::string lastFile_;
+  std::map<std::string, ParameterSet> parameterValues_;  // per relative file
   Camera camera_;
   ViewOptions viewOptions_;
   std::string colorScheme_ = "Cornfield";

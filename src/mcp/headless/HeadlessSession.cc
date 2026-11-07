@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "core/Tree.h"
+#include "core/customizer/ParameterObject.h"
 #include "mcp/engine/CompileEngine.h"
+#include "mcp/engine/ParamEngine.h"
 #include "mcp/engine/ViewEngine.h"
 #include "mcp/protocol/Registry.h"
 
@@ -41,7 +43,9 @@ CompileOutcome HeadlessSession::compile(const CompileRequest& request)
 
   const auto firstSeq = MessageLog::instance().lastSeq();
   const auto started = std::chrono::steady_clock::now();
-  EngineResult result = CompileEngine::run(file, request.mode, request.timeoutSeconds);
+  const auto values = parameterValues_.find(project().relative(file));
+  EngineResult result = CompileEngine::run(file, request.mode, request.timeoutSeconds, false,
+                                           values == parameterValues_.end() ? nullptr : &values->second);
 
   CompileOutcome outcome;
   outcome.parsed = result.parsed;
@@ -175,6 +179,84 @@ nlohmann::json HeadlessSession::exportGeometry(const std::string& format, const 
                          (project().root() / lastFile_).string(), camera_, viewOptions_, colorScheme_);
   result["path"] = project().relative(target);
   return result;
+}
+
+std::filesystem::path HeadlessSession::resolveFile(const std::string& file) const
+{
+  std::filesystem::path path;
+  try {
+    path = project().resolve(file);
+  } catch (const std::invalid_argument& e) {
+    throw ToolError(e.what());
+  }
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(path, ec)) throw ToolError("file not found: " + file);
+  return path;
+}
+
+nlohmann::json HeadlessSession::paramsGet(const std::string& file)
+{
+  const auto path = resolveFile(file);
+  const auto relative = project().relative(path);
+  const EngineResult parsed = CompileEngine::run(path, CompileMode::Check, 30);
+  if (!parsed.sourceFile) throw ToolError("the file does not parse; fix the syntax errors first");
+  const auto values = parameterValues_.find(relative);
+  return nlohmann::json{
+    {"file", relative},
+    {"parameters", param::describe(parsed.sourceFile.get(),
+                                   values == parameterValues_.end() ? nullptr : &values->second)},
+    {"overrides",
+     values == parameterValues_.end() ? nlohmann::json::object() : param::toJson(values->second)},
+    {"presets", param::presetNames(path)}};
+}
+
+nlohmann::json HeadlessSession::paramsSet(const std::string& file, const nlohmann::json& values,
+                                          const std::string& preset, bool reset)
+{
+  const auto path = resolveFile(file);
+  const auto relative = project().relative(path);
+  if (reset) parameterValues_.erase(relative);
+  if (!preset.empty()) {
+    bool found = false;
+    for (const auto& set : param::readPresets(path)) {
+      if (set.name() == preset) {
+        parameterValues_[relative] = set;
+        found = true;
+      }
+    }
+    if (!found) throw ToolError("unknown preset: " + preset);
+  }
+  if (values.is_object() && !values.empty()) {
+    auto& current = parameterValues_[relative];
+    for (const auto& [name, value] : param::fromJson(values)) current[name] = value;
+  }
+  return paramsGet(file);
+}
+
+nlohmann::json HeadlessSession::presetsList(const std::string& file)
+{
+  const auto path = resolveFile(file);
+  nlohmann::json list = nlohmann::json::array();
+  for (const auto& set : param::readPresets(path)) {
+    list.push_back(nlohmann::json{{"name", set.name()}, {"values", param::toJson(set)}});
+  }
+  return nlohmann::json{{"file", project().relative(path)},
+                        {"presetFile", project().relative(param::presetFile(path))},
+                        {"presets", list}};
+}
+
+nlohmann::json HeadlessSession::presetSave(const std::string& file, const std::string& name)
+{
+  if (name.empty()) throw ToolError("preset name must not be empty");
+  const auto path = resolveFile(file);
+  const auto relative = project().relative(path);
+  const EngineResult parsed = CompileEngine::run(path, CompileMode::Check, 30);
+  if (!parsed.sourceFile) throw ToolError("the file does not parse; fix the syntax errors first");
+  ParameterObjects objects = ParameterObjects::fromSourceFile(parsed.sourceFile.get());
+  const auto values = parameterValues_.find(relative);
+  if (values != parameterValues_.end()) objects.importValues(values->second);
+  param::writePreset(path, objects.exportValues(name));
+  return presetsList(file);
 }
 
 }  // namespace mcp

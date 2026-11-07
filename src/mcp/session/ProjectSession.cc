@@ -45,6 +45,27 @@ nlohmann::json ProjectSession::exportGeometry(const std::string&, const std::str
   throw ToolError("this session cannot export");
 }
 
+nlohmann::json ProjectSession::paramsGet(const std::string&)
+{
+  throw ToolError("this session has no customizer");
+}
+
+nlohmann::json ProjectSession::paramsSet(const std::string&, const nlohmann::json&, const std::string&,
+                                         bool)
+{
+  throw ToolError("this session has no customizer");
+}
+
+nlohmann::json ProjectSession::presetsList(const std::string&)
+{
+  throw ToolError("this session has no customizer");
+}
+
+nlohmann::json ProjectSession::presetSave(const std::string&, const std::string&)
+{
+  throw ToolError("this session has no customizer");
+}
+
 void ProjectSession::finishOutcome(CompileOutcome& outcome, std::uint64_t firstSeq,
                                    bool evaluatedWithoutError)
 {

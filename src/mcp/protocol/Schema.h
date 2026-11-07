@@ -8,7 +8,7 @@
 // A deliberately small JSON Schema validator for tool arguments. Supports the
 // subset used by our tool definitions: type (string or list), required,
 // properties, additionalProperties: false, enum, items, minItems, maxItems,
-// minimum, maximum.
+// minimum, maximum, minLength, maxLength.
 namespace mcp::schema {
 
 using json = nlohmann::json;

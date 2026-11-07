@@ -31,6 +31,7 @@ points. Keep this list current whenever a hook is added or removed.
 | `src/openscad_gui.cc` | launching screen suppressed when `--mcp-port`/`--project` given | 1 |
 | `src/openscad_gui.cc` | `mcp::AgentBridge::createIfConfigured(&app)` after the first `MainWindow` | 1 |
 | `src/utils/printutils.{h,cc}` | `add_output_listener` / `remove_output_listener` and one call in `PRINT_NOCACHE` (structured message capture) | 3 |
+| `src/gui/parameter/ParameterWidget.{h,cc}` | public `hasParameters`, `currentValues`, `setParameterValues`, `selectPreset`, `savePreset`, `presetNames` (customizer access for the agent) | 5 |
 
 All hooks are wrapped in `#ifdef ENABLE_MCP`. Later stages will add hooks in
 `src/gui/MainWindow.*` and `src/gui/TabManager.*`; each must be listed here

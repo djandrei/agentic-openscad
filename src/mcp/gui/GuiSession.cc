@@ -28,6 +28,8 @@
 #include "glview/RenderSettings.h"
 #include "gui/QGLView.h"
 #include "gui/ViewportControl.h"
+#include "gui/parameter/ParameterWidget.h"
+#include "mcp/engine/ParamEngine.h"
 #include "mcp/engine/Base64.h"
 #include "mcp/engine/CompileEngine.h"
 #include "mcp/engine/ViewEngine.h"
@@ -467,6 +469,78 @@ nlohmann::json GuiSession::exportGeometry(const std::string& format, const std::
                          currentViewOptions(), RenderSettings::inst()->colorscheme);
   result["path"] = project().relative(target);
   return result;
+}
+
+ParameterWidget *GuiSession::parameterWidgetFor(const std::string& file, fs::path *resolved)
+{
+  fs::path path;
+  try {
+    path = project().resolve(file);
+  } catch (const std::invalid_argument& e) {
+    throw ToolError(e.what());
+  }
+  std::error_code ec;
+  if (!fs::is_regular_file(path, ec)) throw ToolError("file not found: " + file);
+  if (resolved) *resolved = path;
+  window_->tabManager->open(QString::fromStdString(path.string()));
+  EditorInterface *editor = findEditor(path);
+  if (!editor || !editor->parameterWidget) throw ToolError("cannot open " + file + " in the editor");
+  if (!editor->parameterWidget->hasParameters()) {
+    // The customizer learns a file's parameters when the file is compiled.
+    if (GuiLocker::isLocked() && !waitForCompileEnd(120)) throw ToolError("busy: the GUI is compiling");
+    window_->actionRenderPreview();
+    if (GuiLocker::isLocked()) waitForCompileEnd(120);
+  }
+  return editor->parameterWidget;
+}
+
+nlohmann::json GuiSession::paramsGet(const std::string& file)
+{
+  fs::path path;
+  ParameterWidget *widget = parameterWidgetFor(file, &path);
+  const EngineResult parsed = CompileEngine::run(path, CompileMode::Check, 30);
+  if (!parsed.sourceFile) throw ToolError("the file does not parse; fix the syntax errors first");
+  ParameterSet values;
+  if (widget->hasParameters()) values = widget->currentValues();
+  return nlohmann::json{{"file", project().relative(path)},
+                        {"parameters", param::describe(parsed.sourceFile.get(), &values)},
+                        {"overrides", param::toJson(values)},
+                        {"presets", widget->presetNames()}};
+}
+
+nlohmann::json GuiSession::paramsSet(const std::string& file, const nlohmann::json& values,
+                                     const std::string& preset, bool reset)
+{
+  ParameterWidget *widget = parameterWidgetFor(file, nullptr);
+  if (!widget->hasParameters()) throw ToolError("the file declares no customizer parameters");
+  if (reset) widget->selectPreset("");
+  if (!preset.empty() && !widget->selectPreset(preset)) throw ToolError("unknown preset: " + preset);
+  if (values.is_object() && !values.empty()) widget->setParameterValues(param::fromJson(values));
+  return paramsGet(file);
+}
+
+nlohmann::json GuiSession::presetsList(const std::string& file)
+{
+  fs::path path;
+  parameterWidgetFor(file, &path);
+  nlohmann::json list = nlohmann::json::array();
+  for (const auto& set : param::readPresets(path)) {
+    list.push_back(nlohmann::json{{"name", set.name()}, {"values", param::toJson(set)}});
+  }
+  return nlohmann::json{{"file", project().relative(path)},
+                        {"presetFile", project().relative(param::presetFile(path))},
+                        {"presets", list}};
+}
+
+nlohmann::json GuiSession::presetSave(const std::string& file, const std::string& name)
+{
+  if (name.empty()) throw ToolError("preset name must not be empty");
+  fs::path path;
+  ParameterWidget *widget = parameterWidgetFor(file, &path);
+  if (!widget->hasParameters()) throw ToolError("the file declares no customizer parameters");
+  widget->savePreset(name);
+  widget->saveFile(QString::fromStdString(path.string()));
+  return presetsList(file);
 }
 
 }  // namespace mcp

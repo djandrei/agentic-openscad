@@ -46,6 +46,11 @@ TEST_CASE("Schema validation checks enums, arrays and ranges", "[mcp][schema]")
   REQUIRE(validate(arraySchema, json::array({1, 2, 3, 4})).has_value());
   REQUIRE(validate(arraySchema, json::array({1, "x"})).has_value());
 
+  const json lengthSchema{{"type", "string"}, {"minLength", 1}, {"maxLength", 3}};
+  REQUIRE_FALSE(validate(lengthSchema, json("ab")).has_value());
+  REQUIRE(validate(lengthSchema, json("")).has_value());
+  REQUIRE(validate(lengthSchema, json("abcd")).has_value());
+
   const json rangeSchema{{"type", "integer"}, {"minimum", 1}, {"maximum", 65535}};
   REQUIRE_FALSE(validate(rangeSchema, json(80)).has_value());
   REQUIRE(validate(rangeSchema, json(0)).has_value());

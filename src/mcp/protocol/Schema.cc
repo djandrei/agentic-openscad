@@ -71,6 +71,18 @@ std::optional<std::string> validate(const json& schema, const json& value, const
     }
   }
 
+  if (value.is_string()) {
+    const size_t length = value.get<std::string>().size();
+    if (schema.contains("minLength") && length < schema["minLength"].get<size_t>()) {
+      return path + ": expected at least " + std::to_string(schema["minLength"].get<size_t>()) +
+             " characters";
+    }
+    if (schema.contains("maxLength") && length > schema["maxLength"].get<size_t>()) {
+      return path + ": expected at most " + std::to_string(schema["maxLength"].get<size_t>()) +
+             " characters";
+    }
+  }
+
   if (value.is_array()) {
     if (schema.contains("minItems") && value.size() < schema["minItems"].get<size_t>()) {
       return path + ": expected at least " + std::to_string(schema["minItems"].get<size_t>()) + " items";

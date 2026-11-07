@@ -104,6 +104,14 @@ public:
   virtual nlohmann::json exportGeometry(const std::string& format, const std::string& path,
                                         const nlohmann::json& options);
 
+  // Customizer parameters of a file: description with current values,
+  // setting values / selecting a preset / resetting, and presets.
+  virtual nlohmann::json paramsGet(const std::string& file);
+  virtual nlohmann::json paramsSet(const std::string& file, const nlohmann::json& values,
+                                   const std::string& preset, bool reset);
+  virtual nlohmann::json presetsList(const std::string& file);
+  virtual nlohmann::json presetSave(const std::string& file, const std::string& name);
+
 protected:
   // Fills message list, counts and ok flag from the log captured since `firstSeq`.
   static void finishOutcome(CompileOutcome& outcome, std::uint64_t firstSeq, bool evaluatedWithoutError);

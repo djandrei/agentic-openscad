@@ -224,6 +224,25 @@ def run_scenario(client, project_dir, expect_mode=None):
     s.check(exported.get("bytes", 0) > 84 and os.path.exists(os.path.join(project, "out", "cube.stl")),
             "export writes out/cube.stl")
 
+    # Customizer
+    s.tool_ok("file_write", project=project, path="main.scad",
+              content="size = 20; // [5:50]\nlabel = \"a\"; // [a, b]\ncube(size);\n")
+    params = s.tool_ok("params_get", project=project)
+    size = next((p for p in params.get("parameters", []) if p["name"] == "size"), {})
+    s.check(size.get("value") == 20 and size.get("max") == 50, "params_get describes size with its range")
+    changed = s.tool_ok("params_set", project=project, values={"size": 35})
+    s.check(next((p["value"] for p in changed.get("parameters", []) if p["name"] == "size"), None) == 35,
+            "params_set reports the new value")
+    rendered = s.tool_ok("render", project=project)
+    s.check(rendered.get("geometry", {}).get("boundingBox", {}).get("max") == [35, 35, 35],
+            "render uses the customizer value")
+    presets = s.tool_ok("params_preset_save", project=project, name="big")
+    s.check("big" in [p["name"] for p in presets.get("presets", [])], "preset saved next to the file")
+    s.check(os.path.exists(os.path.join(project, "main.json")), "main.json exists")
+    s.tool_ok("params_set", project=project, reset=True)
+    s.tool_ok("file_write", project=project, path="main.scad", content="cube(20);\n")
+    s.tool_ok("render", project=project)
+
     csg = s.tool_ok("csg_tree_dump", project=project)
     s.check("cube(size = [20, 20, 20]" in csg.get("text", ""), "csg_tree_dump shows the cube")
     checked = s.tool_ok("check", project=project)

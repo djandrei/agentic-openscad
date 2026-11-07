@@ -12,6 +12,7 @@
 
 class EditorInterface;
 class MainWindow;
+class ParameterWidget;
 
 namespace mcp {
 
@@ -46,6 +47,11 @@ public:
   nlohmann::json geometryInfo() override;
   nlohmann::json exportGeometry(const std::string& format, const std::string& path,
                                 const nlohmann::json& options) override;
+  nlohmann::json paramsGet(const std::string& file) override;
+  nlohmann::json paramsSet(const std::string& file, const nlohmann::json& values,
+                           const std::string& preset, bool reset) override;
+  nlohmann::json presetsList(const std::string& file) override;
+  nlohmann::json presetSave(const std::string& file, const std::string& name) override;
 
 private:
   static constexpr int kAgentChangeMarker = 12;
@@ -59,6 +65,9 @@ private:
   std::string currentMode() const;
   ViewOptions currentViewOptions() const;
   void applyMode(const std::string& mode);
+  // Opens the file's tab and returns its customizer widget, compiling once
+  // when the widget has not seen the file's parameters yet.
+  ParameterWidget *parameterWidgetFor(const std::string& file, std::filesystem::path *resolved);
 
   MainWindow *window_;
   AgentBridge *bridge_;

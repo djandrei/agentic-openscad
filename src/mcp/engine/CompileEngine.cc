@@ -15,6 +15,8 @@
 #include "core/EvaluationSession.h"
 #include "core/RenderVariables.h"
 #include "core/SourceFile.h"
+#include "core/customizer/CommentParser.h"
+#include "core/customizer/ParameterObject.h"
 #include "core/Tree.h"
 #include "core/node.h"
 #include "core/parsersettings.h"
@@ -82,7 +84,7 @@ nlohmann::json CompileEngine::geometrySummary(const Geometry *geometry)
 }
 
 EngineResult CompileEngine::run(const fs::path& file, CompileMode mode, double timeoutSeconds,
-                                bool wantDumps)
+                                bool wantDumps, const ParameterSet *parameters)
 {
   EngineResult result;
   const auto started = Clock::now();
@@ -111,6 +113,12 @@ EngineResult CompileEngine::run(const fs::path& file, CompileMode mode, double t
   std::shared_ptr<SourceFile> rootFile(parsed);
   result.sourceFile = rootFile;
   result.parsed = true;
+  CommentParser::collectParameters(text, rootFile.get());
+  if (parameters && !parameters->empty()) {
+    ParameterObjects objects = ParameterObjects::fromSourceFile(rootFile.get());
+    objects.importValues(*parameters);
+    objects.apply(rootFile.get());
+  }
   rootFile->handleDependencies();
   if (wantDumps) result.ast = rootFile->dump("");
   if (mode == CompileMode::Check) return result;

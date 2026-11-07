@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 
+#include "core/customizer/ParameterSet.h"
 #include "json/json.hpp"
 
 class AbstractNode;
@@ -42,8 +43,10 @@ struct EngineResult {
 class CompileEngine
 {
 public:
+  // `parameters` (customizer values) are applied to the parsed file before
+  // evaluation, like the command line's -p/-P options.
   static EngineResult run(const std::filesystem::path& file, CompileMode mode, double timeoutSeconds,
-                          bool wantDumps = false);
+                          bool wantDumps = false, const ParameterSet *parameters = nullptr);
 
   // Summary of a geometry for tool results: dimension, emptiness, facets,
   // bounding box.
