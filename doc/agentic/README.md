@@ -35,8 +35,13 @@ and versioned (content hash) so the agent can detect concurrent changes.
   options, a read-only code pane with the file the agent last touched and
   its changed lines highlighted, the project's file list, the customizer
   parameters, the messages of the last compile, the tool-call log and the
-  change stream. The person can orbit the view with the mouse, pick a file
-  to look at, and press *Pause*; nothing else is clickable. The classic
+  change stream. Every panel can be closed; the view takes the freed
+  space, and with all panels closed it fills the window. Toggle buttons in
+  the status bar bring panels back, *View only* (F11) hides and restores
+  them all at once, and a hidden panel that receives new content shows a
+  dot on its button (red for errors). The layout is remembered across
+  starts. The person can orbit the view with the mouse, pick a file to
+  look at, and press *Pause*; nothing else is clickable. The classic
   OpenSCAD GUI remains reachable with `--classic` for debugging.
 - *Headless*: `openscad --mcp-stdio --project DIR` (spawned by the MCP
   client over stdin/stdout), `openscad --mcp-port N --mcp-headless`, or
