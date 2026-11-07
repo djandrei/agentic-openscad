@@ -103,6 +103,16 @@ void ViewerWindow::buildUi()
   lexer->finalizeLexer();
   code_->setLexer(lexer);
   lexer->setFont(mono);
+  // Fixed light paper with dark text (like upstream's default editor scheme),
+  // independent of the desktop theme: the syntax colors below assume it.
+  const QColor paper(0xff, 0xff, 0xff);
+  const QColor text(0x20, 0x20, 0x20);
+  lexer->setDefaultPaper(paper);
+  lexer->setDefaultColor(text);
+  lexer->setPaper(paper, -1);
+  lexer->setColor(text, -1);
+  code_->setMarginsBackgroundColor(QColor(0xf0, 0xf0, 0xf0));
+  code_->setMarginsForegroundColor(QColor(0x80, 0x80, 0x80));
   lexer->setColor(QColor(0x1b, 0x5e, 0x9f), ScadLexer2::Keyword);
   lexer->setColor(QColor(0x7b, 0x2e, 0x9f), ScadLexer2::Transformation);
   lexer->setColor(QColor(0x7b, 0x2e, 0x9f), ScadLexer2::Boolean);
