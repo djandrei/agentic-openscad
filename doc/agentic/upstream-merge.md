@@ -24,10 +24,15 @@ points. Keep this list current whenever a hook is added or removed.
 | `CMakeLists.txt` | `include(src/mcp/sources.cmake)` after the `ENABLE_PYTHON` source block | 0 |
 | `CMakeLists.txt` | `src/mcp/*_test.cc` appended to `TEST_SOURCES` | 0 |
 | `cmake/Modules/info.cmake` | one `message(STATUS "MCP server: ...")` line | 0 |
+| `src/openscad.cc` | includes of `mcp/Options.h` and `mcp/headless/HeadlessMain.h` | 1 |
+| `src/openscad.cc` | `--mcp-stdio`, `--mcp-port`, `--mcp-headless`, `--mcp-token`, `--mcp-token-file`, `--project` options after the `run-all-gui-tests` block | 1 |
+| `src/openscad.cc` | `mcp::Options` filled and `mcp::runHeadless()` dispatched before the `cmdlinemode` decision | 1 |
+| `src/openscad_gui.cc` | include of `mcp/gui/AgentBridge.h` | 1 |
+| `src/openscad_gui.cc` | launching screen suppressed when `--mcp-port`/`--project` given | 1 |
+| `src/openscad_gui.cc` | `mcp::AgentBridge::createIfConfigured(&app)` after the first `MainWindow` | 1 |
 
-Stages 1 and later will add hooks in `src/openscad.cc` (CLI flags),
-`src/openscad_gui.cc` (server start-up), `src/gui/OpenSCADApp.*`,
-`src/gui/MainWindow.*` and `src/gui/TabManager.*`. Each must be listed here
+All hooks are wrapped in `#ifdef ENABLE_MCP`. Later stages will add hooks in
+`src/gui/MainWindow.*` and `src/gui/TabManager.*`; each must be listed here
 when added.
 
 ## Merge procedure
