@@ -69,7 +69,20 @@ CompileOutcome EngineSession::compile(const CompileRequest& request)
 
 void EngineSession::fileWritten(const FileChange& change)
 {
-  if (observer_) observer_->fileWritten(*this, change);
+  if (!observer_) return;
+  observer_->fileWritten(*this, change);
+  // With a viewer attached, a write to the main file is previewed right
+  // away so the view follows the agent even when it only writes.
+  if (project().autoPreview() && change.absolute == project().mainPath()) {
+    CompileRequest request;
+    request.file = change.path;
+    request.mode = CompileMode::Preview;
+    try {
+      compile(request);
+    } catch (const ToolError&) {
+      // reported through the messages of the next explicit preview
+    }
+  }
 }
 
 void EngineSession::fileRemoved(const std::string& relativePath)
@@ -258,6 +271,14 @@ nlohmann::json EngineSession::paramsSet(const std::string& file, const nlohmann:
   }
   if (observer_) observer_->paramsChanged(*this, relative);
   return paramsGet(file);
+}
+
+nlohmann::json EngineSession::parameterSummary() const
+{
+  if (!last_.sourceFile) return nlohmann::json::array();
+  const auto values = parameterValues_.find(lastFile_);
+  return param::describe(last_.sourceFile.get(),
+                         values == parameterValues_.end() ? nullptr : &values->second);
 }
 
 nlohmann::json EngineSession::presetsList(const std::string& file)

@@ -139,11 +139,11 @@ TEST_CASE("EngineSession reports file, compile, view and parameter events", "[mc
   f.call("file_rename", json{{"from", "main.scad"}, {"to", "part.scad"}});
   f.call("file_delete", json{{"path", "part.scad"}});
 
-  REQUIRE(f.observer.events ==
-          std::vector<std::string>{"written:main.scad", "compiled:check:ok:notree",
-                                   "compiled:preview:ok:tree", "compiled:render:ok:tree", "camera",
-                                   "viewOptions", "params:main.scad", "renamed:main.scad>part.scad",
-                                   "removed:part.scad"});
+  REQUIRE(f.observer.events == std::vector<std::string>{
+                                 "written:main.scad", "compiled:preview:ok:tree",
+                                 "compiled:check:ok:tree", "compiled:preview:ok:tree",
+                                 "compiled:render:ok:tree", "camera", "viewOptions", "params:main.scad",
+                                 "renamed:main.scad>part.scad", "removed:part.scad"});
 }
 
 TEST_CASE("EngineSession reports library changes and pause state", "[mcp][session][observer]")
@@ -160,6 +160,7 @@ TEST_CASE("EngineSession reports library changes and pause state", "[mcp][sessio
   f.call("library_install", json{{"library", zipPath.string()}, {"dirName", "lib"}});
   f.call("library_remove", json{{"name", "lib"}});
   fs::remove(zipPath);
+  // The write to the main file is followed by the automatic preview.
   REQUIRE(f.observer.events == std::vector<std::string>{"libraries", "libraries"});
 
   REQUIRE(f.call("status")["projects"][0]["paused"] == false);

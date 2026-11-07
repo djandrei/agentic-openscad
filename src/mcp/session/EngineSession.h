@@ -63,6 +63,9 @@ public:
   const ViewOptions& viewOptions() const { return viewOptions_; }
   const std::string& colorScheme() const { return colorScheme_; }
   const std::string& viewMode() const { return mode_; }  // preview | render | thrownTogether
+  // Customizer parameters of the last compiled file with the current
+  // overrides, without reparsing (empty when nothing was compiled).
+  nlohmann::json parameterSummary() const;
 
 private:
   void ensureCompiled(CompileMode mode, double timeoutSeconds);

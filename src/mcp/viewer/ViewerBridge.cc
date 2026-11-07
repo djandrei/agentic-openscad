@@ -88,7 +88,10 @@ ViewerBridge::ViewerBridge(Options options, ViewerWindow *window)
     [this](ProjectSession *session) { window_->showSession(dynamic_cast<EngineSession *>(session)); });
   connect(this, &ViewerBridge::stateChanged, this, [this] {
     window_->setServerStatus(running() ? tr("MCP %1").arg(url()) : tr("server stopped"));
+    window_->setPausedIndicator(paused_);
   });
+  connect(this, &ViewerBridge::toolCalled, window_, &ViewerWindow::appendToolCall);
+  connect(window_, &ViewerWindow::pauseToggled, this, &ViewerBridge::setPaused);
 }
 
 ViewerBridge::~ViewerBridge()
