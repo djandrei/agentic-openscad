@@ -39,6 +39,7 @@ option(INFO "Display build configuration info at end of cmake config" ON)
 option(ENABLE_TESTS "Run testsuite after building." ON)
 option(ENABLE_GUI_TESTS "Compile a special version of the openscad gui with feature for testing." OFF)
 option(EXPERIMENTAL "Enable Experimental Features" OFF)
+option(ENABLE_MCP "Build the MCP server for AI agents (Agentic-OpenSCAD)" ON)
 option(USE_MANIFOLD_TRIANGULATOR "Use Manifold's triangulator instead of CGAL's" ON)
 option(USE_MANIFOLD_MINKOWSKI "Use Manifold's Minkowski instead of CGAL's" OFF)
 option(USE_BUILTIN_MANIFOLD "Use manifold from submodule" ON)
@@ -1179,6 +1180,10 @@ if(ENABLE_PYTHON)
 	target_compile_definitions(OpenSCADLibInternal PUBLIC ENABLE_PYTHON)
 endif()
 
+if(ENABLE_MCP)
+  include(src/mcp/sources.cmake)
+endif()
+
 if(EXPERIMENTAL AND ENABLE_CGAL)
   list(APPEND CORE_SOURCES
   src/core/RoofNode.cc
@@ -1626,6 +1631,10 @@ file(GLOB_RECURSE TEST_SOURCES
   "src/io/*_test.cc"
   "src/libsvg/*_test.cc"
 )
+if(ENABLE_MCP)
+  file(GLOB_RECURSE MCP_TEST_SOURCES "src/mcp/*_test.cc")
+  list(APPEND TEST_SOURCES ${MCP_TEST_SOURCES})
+endif()
 file(GLOB_RECURSE GUI_TEST_SOURCES
   "src/gui/*_test.cc"
 )
