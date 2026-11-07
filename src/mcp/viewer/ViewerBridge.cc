@@ -84,6 +84,11 @@ ViewerBridge::ViewerBridge(Options options, ViewerWindow *window)
     return std::nullopt;
   });
   token_ = options_.token.empty() ? generateToken() : options_.token;
+  sessions_.setCurrentChanged(
+    [this](ProjectSession *session) { window_->showSession(dynamic_cast<EngineSession *>(session)); });
+  connect(this, &ViewerBridge::stateChanged, this, [this] {
+    window_->setServerStatus(running() ? tr("MCP %1").arg(url()) : tr("server stopped"));
+  });
 }
 
 ViewerBridge::~ViewerBridge()
@@ -156,6 +161,9 @@ void ViewerBridge::setPaused(bool paused)
 {
   if (paused_ == paused) return;
   paused_ = paused;
+  for (auto *session : sessions_.sessions()) {
+    if (auto *engine = dynamic_cast<EngineSession *>(session)) engine->setPaused(paused);
+  }
   emit stateChanged();
 }
 
