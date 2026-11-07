@@ -25,7 +25,9 @@ if(NOT HEADLESS)
   if(XVFB_RUN)
     add_test(NAME agentic-e2e-gui
       CONFIGURATIONS Default
-      COMMAND ${XVFB_RUN} -a -s "-screen 0 1280x1024x24"
+      # The long option form matters: tests/test_pretty_print.py reads the
+      # argument after a "-s" in the test command as the test's output type.
+      COMMAND ${XVFB_RUN} -a --server-args=-screen\ 0\ 1280x1024x24
               ${Python3_EXECUTABLE} ${AGENTIC_E2E} --launch $<TARGET_FILE:OpenSCADExe> --launch-mode gui
     )
     set_tests_properties(agentic-e2e-gui PROPERTIES ENVIRONMENT "${AGENTIC_TEST_ENV}" TIMEOUT 600)
