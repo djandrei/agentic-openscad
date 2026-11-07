@@ -19,6 +19,7 @@
 #include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
 #include "mcp/tools/FileTools.h"
+#include "mcp/tools/LibraryTools.h"
 #include "mcp/tools/ParamTools.h"
 #include "mcp/tools/ViewTools.h"
 #include "mcp/transport/HttpTransport.h"
@@ -65,6 +66,7 @@ int runHeadless(const Options& options)
   registerCompileTools(tools, sessions);
   registerViewTools(tools, sessions);
   registerParamTools(tools, sessions);
+  registerLibraryTools(tools, sessions);
   Server server(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()}, tools, resources,
                 prompts);
 

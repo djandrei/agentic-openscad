@@ -7,11 +7,22 @@
 #include <utility>
 #include <vector>
 
+#include "core/parsersettings.h"
 #include "mcp/protocol/Registry.h"
 
 namespace fs = std::filesystem;
 
 namespace mcp {
+
+namespace {
+
+fs::path librariesDirOf(const Project& project)
+{
+  const auto libraries = project.config().value("libraries", nlohmann::json::object());
+  return project.root() / libraries.value("dir", "libraries");
+}
+
+}  // namespace
 
 SessionManager::SessionManager(std::string mode, Factory factory)
   : mode_(std::move(mode)), factory_(std::move(factory))
@@ -39,6 +50,9 @@ ProjectSession& SessionManager::open(const fs::path& dir)
   } catch (const std::exception& e) {
     throw ToolError(std::string("cannot open project: ") + e.what());
   }
+  // The project's libraries folder is searched first by use/include while
+  // the project is open.
+  add_librarydir_front(librariesDirOf(*project).string());
   sessions_.push_back(factory_(project));
   current_ = sessions_.back().get();
   return *current_;
@@ -48,6 +62,7 @@ void SessionManager::close(const std::string& id)
 {
   for (auto it = sessions_.begin(); it != sessions_.end(); ++it) {
     if ((*it)->project().id() == id) {
+      remove_librarydir(librariesDirOf((*it)->project()).string());
       if (current_ == it->get()) current_ = nullptr;
       sessions_.erase(it);
       break;

@@ -13,6 +13,12 @@ list(APPEND CORE_SOURCES
   src/mcp/engine/ViewEngine.cc
   src/mcp/headless/HeadlessMain.cc
   src/mcp/headless/HeadlessSession.cc
+  src/mcp/library/Archive.cc
+  src/mcp/library/BundledRegistry.cc
+  src/mcp/library/Download.cc
+  src/mcp/library/LibraryManager.cc
+  src/mcp/library/Process.cc
+  src/mcp/library/Registry.cc
   src/mcp/protocol/JsonRpc.cc
   src/mcp/protocol/Registry.cc
   src/mcp/protocol/Schema.cc
@@ -26,6 +32,7 @@ list(APPEND CORE_SOURCES
   src/mcp/tools/CompileTools.cc
   src/mcp/tools/CoreTools.cc
   src/mcp/tools/FileTools.cc
+  src/mcp/tools/LibraryTools.cc
   src/mcp/tools/ParamTools.cc
   src/mcp/tools/ViewTools.cc
   src/mcp/transport/HttpTransport.cc

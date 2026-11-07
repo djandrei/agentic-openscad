@@ -243,6 +243,27 @@ def run_scenario(client, project_dir, expect_mode=None):
     s.tool_ok("file_write", project=project, path="main.scad", content="cube(20);\n")
     s.tool_ok("render", project=project)
 
+    # Libraries
+    import io
+    import zipfile
+    zip_path = os.path.join(tempfile.gettempdir(), "agentic-e2e-lib.zip")
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("e2elib-main/shapes.scad", "module box(s = 10) { cube(s); }\n")
+        zf.writestr("e2elib-main/README.md", "# e2elib\n")
+    catalog = s.tool_ok("library_catalog", project=project, query="BOSL2")
+    s.check(any(l["name"] == "BOSL2" for l in catalog.get("libraries", [])), "library_catalog lists BOSL2")
+    installed = s.tool_ok("library_install", project=project, library="file://" + zip_path, dirName="e2elib")
+    s.check(installed.get("files") == 2, "library_install extracts the archive")
+    files = s.tool_ok("library_files", project=project, name="e2elib", describe=True)
+    s.check(any(m["name"] == "box" for d in files.get("described", []) for m in d.get("modules", [])),
+            "library_files describes module box")
+    s.tool_ok("file_write", project=project, path="main.scad", content="use <e2elib/shapes.scad>\nbox(20);\n")
+    lib_preview = s.tool_ok("preview", project=project)
+    s.check(lib_preview.get("ok") and lib_preview.get("warnings") == 0, "preview resolves use <e2elib/...>")
+    s.tool_ok("library_remove", project=project, name="e2elib")
+    s.tool_ok("file_write", project=project, path="main.scad", content="cube(20);\n")
+    s.tool_ok("render", project=project)
+
     csg = s.tool_ok("csg_tree_dump", project=project)
     s.check("cube(size = [20, 20, 20]" in csg.get("text", ""), "csg_tree_dump shows the cube")
     checked = s.tool_ok("check", project=project)
