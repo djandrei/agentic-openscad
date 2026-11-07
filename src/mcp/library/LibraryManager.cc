@@ -41,7 +41,11 @@ std::string nowIso()
 {
   const std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
   std::tm tm{};
+#ifdef _WIN32
+  gmtime_s(&tm, &t);  // MinGW's UCRT has no gmtime_r
+#else
   gmtime_r(&t, &tm);
+#endif
   std::ostringstream out;
   out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
   return out.str();

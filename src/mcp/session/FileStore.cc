@@ -29,7 +29,11 @@ std::string isoTime(fs::file_time_type time)
     time - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
   const std::time_t t = std::chrono::system_clock::to_time_t(sys);
   std::tm tm{};
+#ifdef _WIN32
+  gmtime_s(&tm, &t);  // MinGW's UCRT has no gmtime_r
+#else
   gmtime_r(&t, &tm);
+#endif
   std::ostringstream out;
   out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
   return out.str();
