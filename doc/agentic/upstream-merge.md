@@ -10,7 +10,7 @@ points. Keep this list current whenever a hook is added or removed.
 | Path | Purpose |
 |---|---|
 | `src/mcp/` | MCP server: protocol, transports, sessions (GUI and headless) |
-| `src/gui/agent/` | Agent dock, follow-agent, diff stream (GUI only) |
+| `src/mcp/viewer/` | the agent viewer (Qt): entry point, server bridge, window |
 | `resources/agentic/` | Library registry, extra builtin docs |
 | `tests/agentic/` | Fixture projects and the end-to-end client |
 | `doc/agentic/` | Fork documentation |

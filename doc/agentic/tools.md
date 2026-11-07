@@ -1,6 +1,6 @@
 # Agentic-OpenSCAD tool reference
 
-Generated from `tools/list` of `openscad --mcp-stdio` (41 tools). Arguments marked * are required. Every project-scoped tool accepts an optional `project` argument (the project folder); it defaults to the current project.
+Generated from `tools/list` of `openscad --mcp-stdio` (40 tools). Arguments marked * are required. Every project-scoped tool accepts an optional `project` argument (the project folder); it defaults to the current project.
 
 ## Project and session
 
@@ -41,7 +41,7 @@ Change project settings in .openscad-project.json: the main file (the one previe
 | `autoPreview` | boolean |  |
 | `main` | string | Main .scad file, relative to the root. |
 
-## Files and editor
+## Files
 
 ### `file_list`
 
@@ -65,14 +65,13 @@ Read a project file. Returns the content (or a window of lines when startLine/li
 
 ### `file_write`
 
-Create or replace a project file. Pass either `content` (the whole file) or `edits` (exact text replacements applied in order; each `old` must occur exactly once unless replaceAll). Pass `baseVersion` from file_read to fail safely if the file changed meanwhile. In GUI mode the file is opened in a tab and the change is highlighted for the user. Fails when the user has unsaved edits in that file unless `force` is set.
+Create or replace a project file. Pass either `content` (the whole file) or `edits` (exact text replacements applied in order; each `old` must occur exactly once unless replaceAll). Pass `baseVersion` from file_read to fail safely if the file changed meanwhile. The viewer shows the file with the changed lines highlighted.
 
 | argument | type | description |
 |---|---|---|
 | `baseVersion` | string | Version the edit is based on. |
 | `content` | string | Whole new content. |
 | `edits` | array |  |
-| `force` | boolean | Overwrite unsaved editor changes. |
 | `path`* | string | File path relative to the project root; folders are created. |
 
 ### `file_rename`
@@ -91,14 +90,6 @@ Delete a project file.
 | argument | type | description |
 |---|---|---|
 | `path`* | string | File path relative to the project root. |
-
-### `editor_get`
-
-Return what the editor currently shows for a file (GUI mode), including unsaved user edits, with its version. Falls back to the file on disk when the file is not open or in headless mode. Without a path, the project's main file is used.
-
-| argument | type | description |
-|---|---|---|
-| `path` | string | File path relative to the project root. |
 
 ## Compiling
 

@@ -146,8 +146,9 @@ void ViewerWindow::buildUi()
   top->addWidget(view_);
   top->addWidget(right);
   top->setStretchFactor(0, 3);
-  top->setStretchFactor(1, 5);
+  top->setStretchFactor(1, 6);
   top->setStretchFactor(2, 3);
+  top->setSizes({360, 720, 320});
 
   // Bottom: activity log and change stream.
   activity_ = new QPlainTextEdit(this);
@@ -170,6 +171,7 @@ void ViewerWindow::buildUi()
   main->addWidget(bottom);
   main->setStretchFactor(0, 4);
   main->setStretchFactor(1, 1);
+  main->setSizes({700, 160});
   setCentralWidget(main);
 
   pauseButton_ = new QToolButton(this);

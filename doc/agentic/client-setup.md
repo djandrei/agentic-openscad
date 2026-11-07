@@ -12,28 +12,28 @@ Omit `--project` to let the agent choose with `project_open`. The process
 exits when Claude Code closes it. Log output goes to stderr; stdout carries
 only JSON-RPC.
 
-## Claude Code, GUI (watch the agent work)
+## Claude Code with the viewer (watch the agent work)
 
-Start OpenSCAD with the server enabled:
+Start the viewer; it is the default window of the fork:
 
 ```bash
+openscad --project /path/to/project            # port from the settings, default 7645
 openscad --mcp-port 7645 --project /path/to/project
 ```
 
-The status bar shows `Agent: :7645`. Its menu offers *Copy Claude Code
-command*, which puts the following on the clipboard (the token is random per
+It prints the `claude mcp add` command on stderr (the token is random per
 start; `--mcp-token` fixes it, `--mcp-token-file` writes it to a file):
 
 ```bash
 claude mcp add --transport http openscad http://127.0.0.1:7645/mcp --header "Authorization: Bearer <token>"
 ```
 
-Without `--mcp-port` the server can be started later from the status bar
-menu (port and auto-start are remembered in the preferences).
-
-The Agent dock (tabified with the console) shows tool calls and changes.
-*Pause agent* makes every tool call fail until resumed; *Follow agent*
-switches the editor to the file and line being changed.
+The viewer follows the project of the agent's last tool call. *Pause agent*
+in the status bar makes every tool call fail until resumed; the person may
+also orbit the 3D view with the mouse (the agent's camera remains the
+reference and the view snaps back on its next camera or view action) and
+click a file in the list to look at it. The classic OpenSCAD GUI is still
+available with `openscad --classic` for debugging; it has no agent server.
 
 ## Headless HTTP
 
@@ -41,8 +41,8 @@ switches the editor to the file and line being changed.
 openscad --mcp-port 7645 --mcp-headless --project /path/to/project
 ```
 
-prints the URL, the token and the `claude mcp add` command on stderr. Useful
-when the client cannot spawn processes.
+prints the URL, the token and the `claude mcp add` command on stderr. A
+launch without a display behaves the same way on the default port.
 
 ## Other clients
 
@@ -52,9 +52,9 @@ is a minimal standard-library client and doubles as an example.
 
 ## Requirements and environment
 
-- `view_capture` in headless mode needs an offscreen OpenGL context (EGL is
-  tried first, then GLX; OSMesa if built with it). On a server without a GPU,
-  Mesa's llvmpipe through EGL works.
+- `view_capture` needs an offscreen OpenGL context (EGL is tried first, then
+  GLX; OSMesa if built with it). On a server without a GPU, Mesa's llvmpipe
+  through EGL works.
 - `docs_update` and `library_install` need network access to openscad.org
   and the forges; everything else is offline.
 - `AGENTIC_OPENSCAD_DOCS_CACHE` overrides the documentation cache folder.
@@ -75,5 +75,5 @@ is a minimal standard-library client and doubles as an example.
 ```
 
 `main` is the file previewed, rendered and exported by default
-(`project_set` changes it); `autoPreview` previews in the GUI after each
+(`project_set` changes it); `autoPreview` previews in the viewer after each
 write to the main file; `registries` lists extra library catalogs.

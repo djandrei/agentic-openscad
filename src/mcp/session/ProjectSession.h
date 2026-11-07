@@ -15,13 +15,6 @@
 
 namespace mcp {
 
-// Text currently shown in an editor for a file, which may differ from disk.
-struct EditorState {
-  std::string text;
-  std::string version;  // FileStore::versionOf(text)
-  bool unsaved = false;
-};
-
 struct CompileRequest {
   std::string file;  // relative to the project root
   CompileMode mode = CompileMode::Preview;
@@ -72,13 +65,6 @@ public:
   virtual bool paused() const { return false; }
   // True while a compile or render started by the user is running (GUI only).
   virtual bool busy() const { return false; }
-
-  // Editor contents for a file when it is open in an editor; nullopt when not
-  // open or in headless mode.
-  virtual std::optional<EditorState> editorState(const std::string& /*relativePath*/) const
-  {
-    return std::nullopt;
-  }
 
   // Hooks invoked after the file store changed the disk.
   virtual void fileWritten(const FileChange& /*change*/) {}

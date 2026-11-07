@@ -136,7 +136,7 @@ def run_scenario(client, project_dir, expect_mode=None):
 
     tools = client.request("tools/list")["result"]["tools"]
     names = {t["name"] for t in tools}
-    for required in ["project_open", "file_write", "file_read", "file_list", "editor_get", "status"]:
+    for required in ["project_open", "file_write", "file_read", "file_list", "status"]:
         s.check(required in names, f"tool {required} listed")
 
     info = s.tool_ok("project_open", path=project_dir)
@@ -160,8 +160,8 @@ def run_scenario(client, project_dir, expect_mode=None):
                        edits=[{"old": "cube(10);", "new": "cube(20);"}])
     s.check(edited["change"]["startLine"] == 2, "edit reports the changed line")
 
-    editor = s.tool_ok("editor_get", project=project, path="main.scad")
-    s.check(editor["text"] == "// e2e\ncube(20);\n", "editor_get shows the edited text")
+    reread = s.tool_ok("file_read", project=project, path="main.scad")
+    s.check(reread["content"] == "// e2e\ncube(20);\n", "file_read shows the edited text")
 
     listing = s.tool_ok("file_list", project=project)
     s.check(any(f["path"] == "main.scad" for f in listing["files"]), "file_list contains main.scad")

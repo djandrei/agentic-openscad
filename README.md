@@ -6,13 +6,16 @@
 
 # Agentic-OpenSCAD
 
-This fork adds a [Model Context Protocol](https://modelcontextprotocol.io)
-server so AI agents can drive OpenSCAD: write files, get errors and warnings
-with line numbers, preview and render, look at the model from any angle,
-measure the geometry, use the customizer, install libraries and read the
-documentation. Run `openscad --mcp-stdio --project DIR` (headless, spawned by
-the agent's client) or `openscad --mcp-port 7645 --project DIR` (watch the
-agent in the GUI). See [doc/agentic/README.md](doc/agentic/README.md),
+This fork turns OpenSCAD into a tool for AI agents. Every command comes from
+the agent through a [Model Context Protocol](https://modelcontextprotocol.io)
+server: write files, get errors and warnings with line numbers, preview and
+render, look at the model from any angle, measure the geometry, use the
+customizer, install libraries and read the documentation. `openscad
+--project DIR` opens the viewer, a window that only shows what the agent is
+doing (3D view, code, messages, parameters, activity) while the server runs;
+`openscad --mcp-stdio --project DIR` runs headless, spawned by the agent's
+client. The classic GUI is kept behind `--classic`. See
+[doc/agentic/README.md](doc/agentic/README.md),
 [doc/agentic/client-setup.md](doc/agentic/client-setup.md) and the
 [tool reference](doc/agentic/tools.md).
 

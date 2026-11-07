@@ -16,18 +16,12 @@ using nlohmann::json;
 
 namespace {
 
-// Session that records hooks and can simulate an editor with unsaved changes.
+// Session that records hooks.
 class RecordingSession : public mcp::ProjectSession
 {
 public:
   using ProjectSession::ProjectSession;
   json status() const override { return json{{"mode", "fake"}}; }
-  std::optional<mcp::EditorState> editorState(const std::string& path) const override
-  {
-    if (path == unsavedPath)
-      return mcp::EditorState{"user text", mcp::FileStore::versionOf("user text"), true};
-    return std::nullopt;
-  }
   void fileWritten(const mcp::FileChange& change) override { written.push_back(change.path); }
   void fileRemoved(const std::string& path) override { removed.push_back(path); }
   void fileRenamed(const std::string& from, const std::string& to) override
@@ -35,7 +29,6 @@ public:
     renamed.push_back(from + "->" + to);
   }
 
-  std::string unsavedPath;
   std::vector<std::string> written, removed, renamed;
 };
 
@@ -102,7 +95,7 @@ TEST_CASE("File tools write, read and list through the session", "[mcp][tools][f
   REQUIRE(neither["isError"] == true);
 }
 
-TEST_CASE("File tools detect conflicts and unsaved editor changes", "[mcp][tools][files]")
+TEST_CASE("File tools detect conflicts", "[mcp][tools][files]")
 {
   Fixture f;
   json first = f.call("file_write", json{{"path", "main.scad"}, {"content", "a\n"}});
@@ -120,24 +113,6 @@ TEST_CASE("File tools detect conflicts and unsaved editor changes", "[mcp][tools
                                           {"baseVersion", second["structuredContent"]["version"]}});
   REQUIRE(edited["isError"] == false);
   REQUIRE(f.call("file_read", json{{"path", "main.scad"}})["structuredContent"]["content"] == "B\n");
-
-  f.session->unsavedPath = "main.scad";
-  json blocked = f.call("file_write", json{{"path", "main.scad"}, {"content", "z\n"}});
-  REQUIRE(blocked["isError"] == true);
-  REQUIRE(blocked["structuredContent"]["editorVersion"] == mcp::FileStore::versionOf("user text"));
-  json forced = f.call("file_write", json{{"path", "main.scad"}, {"content", "z\n"}, {"force", true}});
-  REQUIRE(forced["isError"] == false);
-
-  json editor = f.call("editor_get", json{{"path", "main.scad"}});
-  REQUIRE(editor["structuredContent"]["source"] == "editor");
-  REQUIRE(editor["structuredContent"]["unsaved"] == true);
-  REQUIRE(editor["structuredContent"]["text"] == "user text");
-  REQUIRE(editor["structuredContent"]["diskVersion"] == forced["structuredContent"]["version"]);
-
-  f.session->unsavedPath.clear();
-  json disk = f.call("editor_get");  // defaults to the main file
-  REQUIRE(disk["structuredContent"]["source"] == "disk");
-  REQUIRE(disk["structuredContent"]["text"] == "z\n");
 }
 
 TEST_CASE("File tools rename and delete with hooks", "[mcp][tools][files]")

@@ -5,7 +5,7 @@
 
 namespace mcp {
 
-// file_list, file_read, file_write, file_rename, file_delete, editor_get.
+// file_list, file_read, file_write, file_rename, file_delete.
 void registerFileTools(ToolRegistry& tools, SessionManager& sessions);
 
 }  // namespace mcp
