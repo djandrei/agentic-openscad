@@ -53,3 +53,9 @@ if(NOT HEADLESS)
 endif()
 
 target_compile_definitions(OpenSCADLibInternal PUBLIC ENABLE_MCP)
+
+# Boost.Asio (the HTTP transport) needs the Winsock libraries on Windows:
+# ws2_32 for sockets and mswsock for AcceptEx and GetAcceptExSockaddrs.
+if(WIN32)
+  target_link_libraries(OpenSCADLibInternal PUBLIC ws2_32 mswsock)
+endif()
