@@ -7,6 +7,25 @@
 
 list(APPEND CORE_SOURCES
   src/mcp/BuildInfo.cc
+  src/mcp/headless/HeadlessMain.cc
+  src/mcp/headless/HeadlessSession.cc
+  src/mcp/protocol/JsonRpc.cc
+  src/mcp/protocol/Registry.cc
+  src/mcp/protocol/Schema.cc
+  src/mcp/protocol/Server.cc
+  src/mcp/session/Project.cc
+  src/mcp/session/SessionManager.cc
+  src/mcp/tools/CoreTools.cc
+  src/mcp/transport/HttpTransport.cc
+  src/mcp/transport/StdioTransport.cc
 )
+
+if(NOT HEADLESS)
+  list(APPEND CORE_SOURCES
+    src/mcp/gui/AgentBridge.cc
+    src/mcp/gui/AgentStatusWidget.cc
+    src/mcp/gui/GuiSession.cc
+  )
+endif()
 
 target_compile_definitions(OpenSCADLibInternal PUBLIC ENABLE_MCP)

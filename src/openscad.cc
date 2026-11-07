@@ -107,6 +107,10 @@
 #include "glview/RenderSettings.h"
 #include "handle_dep.h"
 #include "io/export.h"
+#ifdef ENABLE_MCP
+#include "mcp/Options.h"
+#include "mcp/headless/HeadlessMain.h"
+#endif
 #include "openscad_gui.h"
 #include "openscad_mimalloc.h"
 #include "platform/PlatformUtils.h"
@@ -944,6 +948,18 @@ int openscad_main(int argc, char **argv)
   // clang-format on
 #endif
 
+#ifdef ENABLE_MCP
+  // clang-format off
+  desc.add_options()
+    ("mcp-stdio", "serve the Model Context Protocol for AI agents over stdin/stdout, without a GUI")
+    ("mcp-port", po::value<int>(), "=port serve MCP over HTTP on 127.0.0.1:port (opens the GUI when a display is available)")
+    ("mcp-headless", "with --mcp-port: serve without opening the GUI")
+    ("mcp-token", po::value<std::string>(), "=token bearer token for the MCP HTTP transport (random when omitted)")
+    ("mcp-token-file", po::value<std::string>(), "=file write the MCP HTTP bearer token to this file")
+    ("project", po::value<std::string>(), "=dir open this folder as the agent project");
+  // clang-format on
+#endif
+
   po::options_description hidden("Hidden options");
   // clang-format off
   hidden.add_options()
@@ -1146,6 +1162,32 @@ int openscad_main(int argc, char **argv)
   }
 
   PRINTDB("Application location detected as %s", applicationPath);
+
+#ifdef ENABLE_MCP
+  mcp::Options mcpOptions;
+  mcpOptions.stdio = vm.count("mcp-stdio") > 0;
+  if (vm.count("mcp-port")) mcpOptions.port = vm["mcp-port"].as<int>();
+  mcpOptions.headless = vm.count("mcp-headless") > 0;
+  if (vm.count("mcp-token")) mcpOptions.token = vm["mcp-token"].as<std::string>();
+  if (vm.count("mcp-token-file")) mcpOptions.tokenFile = vm["mcp-token-file"].as<std::string>();
+  if (vm.count("project")) {
+    const fs::path project(vm["project"].as<std::string>());
+    mcpOptions.project =
+      (project.is_absolute() ? project : original_path / project).lexically_normal().string();
+  }
+  bool runMcpHeadless = mcpOptions.stdio || (mcpOptions.port > 0 && mcpOptions.headless);
+#ifdef OPENSCAD_NOGUI
+  if (mcpOptions.port > 0) runMcpHeadless = true;
+#else
+  if (mcpOptions.port > 0 && !useGUI()) runMcpHeadless = true;
+#endif
+  if (runMcpHeadless) {
+    parser_init();
+    localization_init();
+    return mcp::runHeadless(mcpOptions);
+  }
+  mcp::Options::global() = mcpOptions;
+#endif
 
   auto cmdlinemode = false;
   if (!output_files.empty()) {  // cmd-line mode

@@ -74,6 +74,9 @@
 #include "gui/LaunchingScreen.h"
 #include "gui/MainWindow.h"
 #include "gui/OpenSCADApp.h"
+#ifdef ENABLE_MCP
+#include "mcp/gui/AgentBridge.h"
+#endif
 #include "gui/Preferences.h"
 #include "gui/QSettingsCached.h"
 #include "openscad.h"
@@ -301,6 +304,13 @@ int gui(std::vector<std::string>& inputFiles, const std::filesystem::path& origi
   }
 #endif
 
+#ifdef ENABLE_MCP
+  // An agent-driven session must not block on the launching screen.
+  if (mcp::Options::global().port > 0 || !mcp::Options::global().project.empty()) {
+    showLauncher = false;
+  }
+#endif
+
   if (showLauncher) {
     LaunchingScreen launcher;
     if (launcher.exec() == QDialog::Accepted) {
@@ -326,6 +336,9 @@ int gui(std::vector<std::string>& inputFiles, const std::filesystem::path& origi
     inputFilesList.append(assemblePath(original_path, infile));
   }
   new MainWindow(inputFilesList);
+#ifdef ENABLE_MCP
+  mcp::AgentBridge::createIfConfigured(&app);
+#endif
   QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
     QSettingsCached{}.release();
 #ifdef Q_OS_MACOS
