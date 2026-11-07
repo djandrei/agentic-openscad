@@ -14,6 +14,29 @@
 using nlohmann::json;
 namespace fs = std::filesystem;
 
+namespace {
+
+// setenv/unsetenv are POSIX; MinGW has _putenv_s, where an empty value removes the variable.
+void setEnv(const char *name, const std::string& value)
+{
+#ifdef _WIN32
+  _putenv_s(name, value.c_str());
+#else
+  setenv(name, value.c_str(), 1);
+#endif
+}
+
+void unsetEnv(const char *name)
+{
+#ifdef _WIN32
+  _putenv_s(name, "");
+#else
+  unsetenv(name);
+#endif
+}
+
+}  // namespace
+
 TEST_CASE("htmlToText strips markup, decodes entities and keeps structure", "[mcp][docs]")
 {
   const std::string html =
@@ -72,7 +95,7 @@ TEST_CASE("Docs serves builtins and a cached manual", "[mcp][docs]")
     std::ofstream cs(cache.path / "cheatsheet.html");
     cs << "<html><body><h1>Cheat Sheet</h1><p>linear_extrude(height, twist)</p></body></html>";
   }
-  setenv("AGENTIC_OPENSCAD_DOCS_CACHE", cache.path.c_str(), 1);
+  setEnv("AGENTIC_OPENSCAD_DOCS_CACHE", cache.path.string());
   auto& docs = mcp::docs::Docs::instance();
   docs.update(false);  // cache present: no network needed
   json status = docs.status();
@@ -104,5 +127,5 @@ TEST_CASE("Docs serves builtins and a cached manual", "[mcp][docs]")
   REQUIRE(cheat["hits"][0]["id"] == "cheatsheet");
   json builtins = docs.search("extrude twist", "builtins", 5, nullptr);
   REQUIRE(builtins["hits"][0]["id"] == "builtins/linear_extrude");
-  unsetenv("AGENTIC_OPENSCAD_DOCS_CACHE");
+  unsetEnv("AGENTIC_OPENSCAD_DOCS_CACHE");
 }
