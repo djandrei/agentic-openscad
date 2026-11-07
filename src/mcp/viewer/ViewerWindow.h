@@ -105,10 +105,15 @@ private:
   struct Panel {
     QDockWidget *dock = nullptr;
     QToolButton *button = nullptr;
-    bool wasOpen = true;  // the state "View only" restores
+    bool wasOpen = true;      // the state "View only" restores
+    bool alertError = false;  // a red dot is showing (not downgraded by later neutral events)
   };
   QDockWidget *addPanel(PanelId id, const char *objectName, const QString& title, QWidget *widget,
                         Qt::DockWidgetArea area);
+  // A hidden panel that receives new content shows a dot on its toggle
+  // button (red for errors) until it is opened; nothing opens by itself.
+  void setPanelAlert(PanelId id, bool error);
+  void clearPanelAlert(PanelId id);
   // "View only" hides every open panel and restores exactly that set.
   void setViewOnly(bool on);
   // Panel visibility and sizes persist in the OpenSCAD settings store.

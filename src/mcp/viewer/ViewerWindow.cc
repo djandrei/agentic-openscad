@@ -6,9 +6,12 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QHeaderView>
+#include <QIcon>
 #include <QKeySequence>
 #include <QLabel>
 #include <QListWidget>
+#include <QPainter>
+#include <QPixmap>
 #include <QPlainTextEdit>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -204,6 +207,29 @@ void ViewerWindow::buildUi()
   statusBar()->addPermanentWidget(serverLabel_);
 }
 
+void ViewerWindow::setPanelAlert(PanelId id, bool error)
+{
+  Panel& panel = panels_[id];
+  if (panel.dock->toggleViewAction()->isChecked()) return;  // visible: the content speaks for itself
+  if (panel.alertError && !error) return;
+  panel.alertError = error;
+  QPixmap pixmap(12, 12);
+  pixmap.fill(Qt::transparent);
+  QPainter painter(&pixmap);
+  painter.setRenderHint(QPainter::Antialiasing);
+  painter.setPen(Qt::NoPen);
+  painter.setBrush(error ? QColor(0xd3, 0x2f, 0x2f) : palette().color(QPalette::Mid));
+  painter.drawEllipse(2, 2, 8, 8);
+  panel.dock->toggleViewAction()->setIcon(QIcon(pixmap));
+}
+
+void ViewerWindow::clearPanelAlert(PanelId id)
+{
+  Panel& panel = panels_[id];
+  panel.alertError = false;
+  panel.dock->toggleViewAction()->setIcon(QIcon());
+}
+
 void ViewerWindow::setViewOnly(bool on)
 {
   switchingViewOnly_ = true;
@@ -256,7 +282,8 @@ QDockWidget *ViewerWindow::addPanel(PanelId id, const char *objectName, const QS
   button->setToolTip(tr("Show or hide the %1 panel").arg(title));
   panels_[id] = Panel{dock, button};
 
-  connect(dock->toggleViewAction(), &QAction::toggled, this, [this](bool visible) {
+  connect(dock->toggleViewAction(), &QAction::toggled, this, [this, id](bool visible) {
+    if (visible) clearPanelAlert(id);
     if (switchingViewOnly_) return;
     // Opening a panel by hand ends "View only" without touching the others.
     if (visible && viewOnlyButton_ && viewOnlyButton_->isChecked()) {
@@ -318,6 +345,7 @@ void ViewerWindow::appendToolCall(const QString& name, const QString& argsSummar
                                .arg(QTime::currentTime().toString("hh:mm:ss"), name, argsSummary,
                                     ok ? QStringLiteral("ok") : QStringLiteral("ERROR"))
                                .arg(millis, 0, 'f', 0));
+  if (!ok) setPanelAlert(PanelActivity, true);
 }
 
 void ViewerWindow::showSession(EngineSession *session)
@@ -572,15 +600,21 @@ void ViewerWindow::updateStatus()
 void ViewerWindow::fileWritten(EngineSession& session, const FileChange& change)
 {
   if (&session != session_) return;
-  if (change.created) refreshFileList();
+  if (change.created) {
+    refreshFileList();
+    setPanelAlert(PanelFiles, false);
+  }
   showFile(change.path, &change);
   appendChange(change);
+  setPanelAlert(PanelCode, false);
+  if (change.hunk) setPanelAlert(PanelChanges, false);
 }
 
 void ViewerWindow::fileRemoved(EngineSession& session, const std::string& relativePath)
 {
   if (&session != session_) return;
   refreshFileList();
+  setPanelAlert(PanelFiles, false);
   if (relativePath == currentFile_) {
     currentFile_.clear();
     code_->setText(QString());
@@ -591,6 +625,7 @@ void ViewerWindow::fileRenamed(EngineSession& session, const std::string& from, 
 {
   if (&session != session_) return;
   refreshFileList();
+  setPanelAlert(PanelFiles, false);
   if (from == currentFile_) showFile(to, nullptr);
 }
 
@@ -607,6 +642,8 @@ void ViewerWindow::compileFinished(EngineSession& session, const CompileRequest&
                    .arg(outcome.warnings)
                    .arg(static_cast<int>(outcome.millis));
   refreshMessages(&outcome);
+  if (outcome.errors > 0 || !outcome.ok) setPanelAlert(PanelMessages, true);
+  else if (outcome.warnings > 0) setPanelAlert(PanelMessages, false);
   if (request.mode == CompileMode::Check) {
     updateStatus();
     return;
@@ -627,7 +664,9 @@ void ViewerWindow::viewOptionsChanged(EngineSession& session)
 
 void ViewerWindow::paramsChanged(EngineSession& session, const std::string&)
 {
-  if (&session == session_) refreshParameters();
+  if (&session != session_) return;
+  refreshParameters();
+  setPanelAlert(PanelParameters, false);
 }
 
 void ViewerWindow::librariesChanged(EngineSession& session)
