@@ -3,7 +3,6 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QIcon>
-#include <QMetaType>
 #include <QString>
 #include <QSurfaceFormat>
 
@@ -15,12 +14,10 @@
 #include <vector>
 
 #include "core/parsersettings.h"
-#include "geometry/Geometry.h"
 #include "gui/QSettingsCached.h"
 #include "mcp/viewer/ViewerBridge.h"
 #include "mcp/viewer/ViewerWindow.h"
 #include "openscad.h"
-#include "utils/printutils.h"
 #include "version.h"
 
 namespace mcp {
@@ -59,8 +56,6 @@ int runViewerApp(int argc, char **argv, const Options& options,
   QCoreApplication::setApplicationVersion(QString::fromStdString(std::string(openscad_versionnumber)));
   QGuiApplication::setApplicationDisplayName("Agentic OpenSCAD");
   app.setWindowIcon(QIcon(":/logo.png"));
-  qRegisterMetaType<Message>();
-  qRegisterMetaType<std::shared_ptr<const Geometry>>();
 
   parser_init();
   const QSettingsCached settings;
