@@ -115,6 +115,8 @@ class Scenario:
         result = self.call(tool, **args)
         self.check(not result.get("isError"), f"{tool} succeeds" +
                    ("" if not result.get("isError") else ": " + result["content"][0]["text"]))
+        if result.get("isError"):
+            return {}
         return result.get("structuredContent", {})
 
     def tool_fails(self, tool, **args):
@@ -174,6 +176,36 @@ def run_scenario(client, project_dir, expect_mode=None):
 
     status = s.tool_ok("status")
     s.check(status["current"] == project, "status reports the current project")
+
+    # Compile feedback
+    s.tool_ok("file_write", project=project, path="main.scad", content="cube(10);\nsphere(;\n")
+    broken = s.tool_ok("preview", project=project)
+    s.check(broken.get("ok") is False and broken.get("parsed") is False, "preview of a syntax error is not ok")
+    s.check(any(m["severity"] == "error" and m.get("line") == 2 for m in broken.get("messages", [])),
+            "syntax error reported on line 2")
+
+    s.tool_ok("file_write", project=project, path="main.scad",
+              content="echo(\"size\", 20);\ncube(undefined_var);\ncube(20);\n")
+    warned = s.tool_ok("preview", project=project)
+    s.check(warned.get("parsed") and warned.get("warnings", 0) >= 1, "preview reports the undefined variable warning")
+    s.check(any(m["severity"] == "echo" for m in warned.get("messages", [])), "preview captures echo output")
+
+    s.tool_ok("file_write", project=project, path="main.scad", content="cube(20);\n")
+    clean = s.tool_ok("preview", project=project)
+    s.check(clean.get("ok") and clean.get("errors") == 0 and clean.get("warnings") == 0, "clean preview is ok")
+
+    rendered = s.tool_ok("render", project=project)
+    s.check(rendered.get("ok"), "render is ok")
+    geometry = rendered.get("geometry", {})
+    s.check(geometry.get("dimension") == 3 and geometry.get("empty") is False, "render reports 3D geometry")
+    s.check(geometry.get("boundingBox", {}).get("max") == [20, 20, 20], "render bounding box is 20x20x20")
+
+    csg = s.tool_ok("csg_tree_dump", project=project)
+    s.check("cube(size = [20, 20, 20]" in csg.get("text", ""), "csg_tree_dump shows the cube")
+    checked = s.tool_ok("check", project=project)
+    s.check(checked.get("ok"), "check passes on the clean file")
+    log = s.tool_ok("log_get", since=0, limit=5)
+    s.check(len(log.get("messages", [])) >= 1 and log.get("lastSeq", 0) > 0, "log_get returns messages")
 
     print(f"{s.steps - s.failures}/{s.steps} checks passed")
     return s.failures == 0

@@ -3,6 +3,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/circular_buffer.hpp>
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <exception>
@@ -38,6 +39,8 @@ boost::circular_buffer<struct Message> lastlogmessages(5);
 bool no_throw;
 bool deferred;
 
+std::vector<std::pair<OutputListenerFunc *, void *>> output_listeners;
+
 }  // namespace
 
 void set_output_handler(OutputHandlerFunc *newhandler, OutputHandlerFunc2 *newhandler2, void *userdata)
@@ -45,6 +48,18 @@ void set_output_handler(OutputHandlerFunc *newhandler, OutputHandlerFunc2 *newha
   outputhandler = newhandler;
   outputhandler2 = newhandler2;
   outputhandler_data = userdata;
+}
+
+void add_output_listener(OutputListenerFunc *listener, void *userdata)
+{
+  output_listeners.emplace_back(listener, userdata);
+}
+
+void remove_output_listener(OutputListenerFunc *listener, void *userdata)
+{
+  output_listeners.erase(
+    std::remove(output_listeners.begin(), output_listeners.end(), std::make_pair(listener, userdata)),
+    output_listeners.end());
 }
 
 void no_exceptions_for_warnings()
@@ -114,6 +129,7 @@ void PRINT_NOCACHE(const Message& msgObj)
     if (i == 5) return;  // Suppress output after 5 equal ERROR or WARNING outputs.
     lastmessages.push_back(msg);
   }
+  for (const auto& listener : output_listeners) listener.first(msgObj, listener.second);
   if (!deferred)
     if (!OpenSCAD::quiet || msgObj.group == message_group::Error) {
       if (!outputhandler) {

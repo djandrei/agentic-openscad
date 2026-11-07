@@ -115,6 +115,13 @@ extern bool rangeCheck;
 }  // namespace OpenSCAD
 
 void set_output_handler(OutputHandlerFunc *newhandler, OutputHandlerFunc2 *newhandler2, void *userdata);
+
+// Agentic-OpenSCAD: additional observers of every printed message, independent
+// of (and in addition to) the output handler. Used to hand structured messages
+// to AI agents.
+using OutputListenerFunc = void(const Message&, void *);
+void add_output_listener(OutputListenerFunc *listener, void *userdata);
+void remove_output_listener(OutputListenerFunc *listener, void *userdata);
 void no_exceptions_for_warnings();
 bool would_have_thrown();
 

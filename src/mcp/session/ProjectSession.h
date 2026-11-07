@@ -4,9 +4,12 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "json/json.hpp"
+#include "mcp/engine/CompileEngine.h"
 #include "mcp/session/FileStore.h"
+#include "mcp/session/MessageLog.h"
 #include "mcp/session/Project.h"
 
 namespace mcp {
@@ -18,9 +21,26 @@ struct EditorState {
   bool unsaved = false;
 };
 
+struct CompileRequest {
+  std::string file;  // relative to the project root
+  CompileMode mode = CompileMode::Preview;
+  double timeoutSeconds = 120;
+};
+
+struct CompileOutcome {
+  bool ok = false;      // parsed, evaluated, no errors, not timed out
+  bool parsed = false;  // syntax was accepted
+  bool timedOut = false;
+  bool unsavedEditor = false;  // GUI: the editor text differed from disk and was compiled instead
+  std::vector<LogMessage> messages;
+  int errors = 0;
+  int warnings = 0;
+  double millis = 0;
+  nlohmann::json geometry;  // Render: CompileEngine::geometrySummary
+};
+
 // One open project. Tool handlers are written against this interface; the
-// headless and the GUI implementations provide the behaviour. Later stages
-// extend it with compilation, view and parameter operations.
+// headless and the GUI implementations provide the behaviour.
 class ProjectSession
 {
 public:
@@ -39,6 +59,8 @@ public:
 
   // True while the user has paused the agent (GUI only).
   virtual bool paused() const { return false; }
+  // True while a compile or render started by the user is running (GUI only).
+  virtual bool busy() const { return false; }
 
   // Editor contents for a file when it is open in an editor; nullopt when not
   // open or in headless mode.
@@ -51,6 +73,15 @@ public:
   virtual void fileWritten(const FileChange& /*change*/) {}
   virtual void fileRemoved(const std::string& /*relativePath*/) {}
   virtual void fileRenamed(const std::string& /*from*/, const std::string& /*to*/) {}
+
+  // Parses / previews / renders a project file and returns the structured
+  // messages of that run. Throws ToolError when the file is missing, the
+  // session is busy, or the session cannot compile at all (the default).
+  virtual CompileOutcome compile(const CompileRequest& request);
+
+protected:
+  // Fills message list, counts and ok flag from the log captured since `firstSeq`.
+  static void finishOutcome(CompileOutcome& outcome, std::uint64_t firstSeq, bool evaluatedWithoutError);
 
 private:
   std::shared_ptr<Project> project_;

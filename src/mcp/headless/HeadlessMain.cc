@@ -14,7 +14,9 @@
 #include "mcp/headless/HeadlessSession.h"
 #include "mcp/protocol/Registry.h"
 #include "mcp/protocol/Server.h"
+#include "mcp/session/MessageLog.h"
 #include "mcp/session/SessionManager.h"
+#include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
 #include "mcp/tools/FileTools.h"
 #include "mcp/transport/HttpTransport.h"
@@ -55,8 +57,10 @@ int runHeadless(const Options& options)
   SessionManager sessions("headless", [](std::shared_ptr<Project> project) {
     return std::make_unique<HeadlessSession>(std::move(project));
   });
+  MessageLog::instance().attach();
   registerCoreTools(tools, sessions);
   registerFileTools(tools, sessions);
+  registerCompileTools(tools, sessions);
   Server server(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()}, tools, resources,
                 prompts);
 

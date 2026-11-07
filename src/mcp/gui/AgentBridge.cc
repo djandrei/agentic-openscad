@@ -5,7 +5,9 @@
 #include <QStatusBar>
 #include <QStringList>
 #include <QThread>
+#include <QTimer>
 
+#include <chrono>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -21,6 +23,8 @@
 #include "mcp/BuildInfo.h"
 #include "mcp/gui/AgentStatusWidget.h"
 #include "mcp/gui/GuiSession.h"
+#include "mcp/session/MessageLog.h"
+#include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
 #include "mcp/tools/FileTools.h"
 #include "utils/printutils.h"
@@ -81,8 +85,10 @@ AgentBridge::AgentBridge(OpenSCADApp *app, Options options)
     sessions_("gui",
               [this](std::shared_ptr<Project> project) { return makeSession(std::move(project)); })
 {
+  MessageLog::instance().attach();
   registerCoreTools(tools_, sessions_);
   registerFileTools(tools_, sessions_);
+  registerCompileTools(tools_, sessions_);
   server_ =
     std::make_unique<Server>(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()},
                              tools_, resources_, prompts_);
@@ -112,6 +118,7 @@ bool AgentBridge::start(QString *error)
   HttpOptions httpOptions;
   httpOptions.port = static_cast<unsigned short>(options_.port > 0 ? options_.port : configuredPort());
   httpOptions.token = token_;
+  stopping_ = false;
   transport_ = std::make_unique<HttpTransport>(*server_, httpOptions,
                                                [this](const std::function<void()>& fn) { execute(fn); });
   try {
@@ -137,6 +144,7 @@ bool AgentBridge::start(QString *error)
 void AgentBridge::stop()
 {
   if (!transport_) return;
+  stopping_ = true;  // releases a transport thread waiting on a queued task
   transport_->stop();
   transport_.reset();
   emit stateChanged();
@@ -210,7 +218,47 @@ void AgentBridge::execute(const std::function<void()>& fn)
     fn();
     return;
   }
-  QMetaObject::invokeMethod(this, [&fn] { fn(); }, Qt::BlockingQueuedConnection);
+  auto task = std::make_shared<GuiTask>();
+  task->fn = fn;
+  auto future = task->done.get_future();
+  {
+    const std::lock_guard<std::mutex> lock(tasksMutex_);
+    tasks_.push_back(task);
+  }
+  QMetaObject::invokeMethod(this, [this] { pump(); }, Qt::QueuedConnection);
+
+  while (future.wait_for(std::chrono::milliseconds(50)) != std::future_status::ready) {
+    if (!stopping_) continue;
+    const std::lock_guard<std::mutex> lock(tasksMutex_);
+    if (!task->running) {
+      task->abandoned = true;  // the GUI will skip it; `fn` must not be touched after we return
+      return;
+    }
+    // Already running on the GUI thread: fall through and keep waiting for it to finish.
+  }
+}
+
+void AgentBridge::pump()
+{
+  if (GuiLocker::isLocked()) {
+    // OpenSCAD is compiling or rendering (possibly pumping events right now);
+    // try again once it is done.
+    QTimer::singleShot(25, this, [this] { pump(); });
+    return;
+  }
+  std::shared_ptr<GuiTask> task;
+  {
+    const std::lock_guard<std::mutex> lock(tasksMutex_);
+    while (!tasks_.empty() && tasks_.front()->abandoned) tasks_.pop_front();
+    if (tasks_.empty()) return;
+    task = tasks_.front();
+    tasks_.pop_front();
+    task->running = true;
+  }
+  task->fn();
+  task->done.set_value();
+  const std::lock_guard<std::mutex> lock(tasksMutex_);
+  if (!tasks_.empty()) QMetaObject::invokeMethod(this, [this] { pump(); }, Qt::QueuedConnection);
 }
 
 MainWindow *AgentBridge::adoptableWindow(const Project& project) const
