@@ -8,6 +8,7 @@
 #include <QListWidget>
 #include <QPlainTextEdit>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QTableWidget>
 #include <QTextBrowser>
@@ -74,7 +75,8 @@ ViewerWindow::ViewerWindow()
 
 void ViewerWindow::buildUi()
 {
-  const QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+  monoFont_ = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+  const QFont& mono = monoFont_;
 
   // Left: file list over the read-only code pane.
   files_ = new QListWidget(this);
@@ -167,21 +169,14 @@ void ViewerWindow::buildUi()
   top->setStretchFactor(2, 3);
   top->setSizes({360, 720, 320});
 
-  // Bottom: activity log and change stream.
-  activity_ = new QPlainTextEdit(this);
-  activity_->setReadOnly(true);
-  activity_->setFont(mono);
-  activity_->setMaximumBlockCount(5000);
-  activity_->setPlaceholderText(tr("Tool calls made by the agent appear here."));
-
-  changes_ = new QTextBrowser(this);
-  changes_->setFont(mono);
-  changes_->setOpenLinks(false);
-  changes_->setPlaceholderText(tr("Every change the agent writes appears here."));
+  // Bottom: activity log and change stream, one pair per project.
+  activityStack_ = new QStackedWidget(this);
+  changesStack_ = new QStackedWidget(this);
+  selectPanes("");
 
   auto *bottom = new QSplitter(Qt::Horizontal, this);
-  bottom->addWidget(activity_);
-  bottom->addWidget(changes_);
+  bottom->addWidget(activityStack_);
+  bottom->addWidget(changesStack_);
 
   auto *main = new QSplitter(Qt::Vertical, this);
   main->addWidget(top);
@@ -217,6 +212,37 @@ void ViewerWindow::setPausedIndicator(bool paused)
   updateStatus();
 }
 
+ViewerWindow::ProjectPanes& ViewerWindow::panesFor(const std::string& projectRoot)
+{
+  auto found = panes_.find(projectRoot);
+  if (found != panes_.end()) return found->second;
+
+  ProjectPanes panes{};
+  panes.activity = new QPlainTextEdit(this);
+  panes.activity->setReadOnly(true);
+  panes.activity->setFont(monoFont_);
+  panes.activity->setMaximumBlockCount(5000);
+  panes.activity->setPlaceholderText(tr("Tool calls made by the agent appear here."));
+  activityStack_->addWidget(panes.activity);
+
+  panes.changes = new QTextBrowser(this);
+  panes.changes->setFont(monoFont_);
+  panes.changes->setOpenLinks(false);
+  panes.changes->setPlaceholderText(tr("Every change the agent writes appears here."));
+  changesStack_->addWidget(panes.changes);
+
+  return panes_.emplace(projectRoot, panes).first->second;
+}
+
+void ViewerWindow::selectPanes(const std::string& projectRoot)
+{
+  ProjectPanes& panes = panesFor(projectRoot);
+  activity_ = panes.activity;
+  changes_ = panes.changes;
+  activityStack_->setCurrentWidget(activity_);
+  changesStack_->setCurrentWidget(changes_);
+}
+
 void ViewerWindow::appendToolCall(const QString& name, const QString& argsSummary, bool ok,
                                   double millis)
 {
@@ -232,6 +258,7 @@ void ViewerWindow::showSession(EngineSession *session)
   if (session_) session_->setObserver(nullptr);
   session_ = session;
   if (session_) session_->setObserver(this);
+  selectPanes(session_ ? session_->project().root().string() : std::string());
   lastCompile_.clear();
   currentFile_.clear();
   refreshFileList();

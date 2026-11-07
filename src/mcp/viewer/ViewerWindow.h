@@ -1,8 +1,10 @@
 #pragma once
 
+#include <QFont>
 #include <QMainWindow>
 #include <QString>
 
+#include <map>
 #include <memory>
 #include <string>
 
@@ -16,6 +18,7 @@ class QTableWidget;
 class QTextBrowser;
 class QToolButton;
 class QsciScintilla;
+class QStackedWidget;
 class Renderer;
 
 namespace mcp {
@@ -74,14 +77,28 @@ private:
   void refreshParameters();
   void appendChange(const FileChange& change);
 
+  // The activity log and the change stream are kept per project (keyed by
+  // the project root; "" before any project is open) and the pair of the
+  // project on screen is shown.
+  struct ProjectPanes {
+    QPlainTextEdit *activity;
+    QTextBrowser *changes;
+  };
+  ProjectPanes& panesFor(const std::string& projectRoot);
+  void selectPanes(const std::string& projectRoot);
+
   EngineSession *session_ = nullptr;
   std::string currentFile_;
   QGLView *view_;
   QsciScintilla *code_;
   QListWidget *files_;
   QTextBrowser *messages_;
-  QPlainTextEdit *activity_;
+  QStackedWidget *activityStack_;
+  QStackedWidget *changesStack_;
+  std::map<std::string, ProjectPanes> panes_;
+  QPlainTextEdit *activity_;  // the pair of the project on screen
   QTextBrowser *changes_;
+  QFont monoFont_;
   QTableWidget *parameters_;
   QToolButton *pauseButton_;
   QLabel *statusLabel_;
