@@ -217,6 +217,7 @@ nlohmann::json EngineSession::exportGeometry(const std::string& format, const st
     view::exportGeometry(last_.geometry, format, target, options,
                          (project().root() / lastFile_).string(), camera_, viewOptions_, colorScheme_);
   result["path"] = project().relative(target);
+  if (observer_) observer_->fileExported(*this, result["path"].get<std::string>());
   return result;
 }
 

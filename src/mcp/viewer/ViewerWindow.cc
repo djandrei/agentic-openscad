@@ -712,6 +712,13 @@ void ViewerWindow::fileRenamed(EngineSession& session, const std::string& from, 
   if (from == currentFile_) showFile(to, nullptr);
 }
 
+void ViewerWindow::fileExported(EngineSession& session, const std::string& /*relativePath*/)
+{
+  if (&session != session_) return;
+  refreshFileList();
+  setPanelAlert(PanelFiles, false);
+}
+
 void ViewerWindow::compileFinished(EngineSession& session, const CompileRequest& request,
                                    const CompileOutcome& outcome)
 {

@@ -52,6 +52,7 @@ public:
   void fileWritten(EngineSession& session, const FileChange& change) override;
   void fileRemoved(EngineSession& session, const std::string& relativePath) override;
   void fileRenamed(EngineSession& session, const std::string& from, const std::string& to) override;
+  void fileExported(EngineSession& session, const std::string& relativePath) override;
   void compileFinished(EngineSession& session, const CompileRequest& request,
                        const CompileOutcome& outcome) override;
   void cameraChanged(EngineSession& session) override;

@@ -43,6 +43,10 @@ struct RecordingObserver : mcp::SessionObserver {
   {
     events.push_back("renamed:" + from + ">" + to);
   }
+  void fileExported(mcp::EngineSession&, const std::string& path) override
+  {
+    events.push_back("exported:" + path);
+  }
   void compileFinished(mcp::EngineSession& session, const mcp::CompileRequest& request,
                        const mcp::CompileOutcome& outcome) override
   {
@@ -133,17 +137,18 @@ TEST_CASE("EngineSession reports file, compile, view and parameter events", "[mc
   REQUIRE(session->lastMode() == mcp::CompileMode::Render);
   REQUIRE(session->lastResult().geometry != nullptr);
   REQUIRE(session->lastFile() == "main.scad");
+  f.call("export", json{{"format", "stl"}, {"path", "out/main.stl"}});
   f.call("camera_set", json{{"preset", "top"}});
   f.call("view_options", json{{"edges", true}});
   f.call("params_set", json{{"values", json{{"size", 7}}}});
   f.call("file_rename", json{{"from", "main.scad"}, {"to", "part.scad"}});
   f.call("file_delete", json{{"path", "part.scad"}});
 
-  REQUIRE(f.observer.events == std::vector<std::string>{
-                                 "written:main.scad", "compiled:preview:ok:tree",
-                                 "compiled:check:ok:tree", "compiled:preview:ok:tree",
-                                 "compiled:render:ok:tree", "camera", "viewOptions", "params:main.scad",
-                                 "renamed:main.scad>part.scad", "removed:part.scad"});
+  REQUIRE(f.observer.events ==
+          std::vector<std::string>{
+            "written:main.scad", "compiled:preview:ok:tree", "compiled:check:ok:tree",
+            "compiled:preview:ok:tree", "compiled:render:ok:tree", "exported:out/main.stl", "camera",
+            "viewOptions", "params:main.scad", "renamed:main.scad>part.scad", "removed:part.scad"});
 }
 
 TEST_CASE("EngineSession reports library changes and pause state", "[mcp][session][observer]")

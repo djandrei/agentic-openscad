@@ -23,6 +23,8 @@ public:
                            const std::string& /*to*/)
   {
   }
+  // After export wrote a file into the project.
+  virtual void fileExported(EngineSession& /*session*/, const std::string& /*relativePath*/) {}
   // After check/preview/render; the session's lastResult() holds the tree and geometry.
   virtual void compileFinished(EngineSession& /*session*/, const CompileRequest& /*request*/,
                                const CompileOutcome& /*outcome*/)
