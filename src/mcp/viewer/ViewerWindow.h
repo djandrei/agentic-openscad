@@ -11,6 +11,7 @@
 
 #include "mcp/session/SessionObserver.h"
 
+class QCloseEvent;
 class QDockWidget;
 class QGLView;
 class QLabel;
@@ -104,13 +105,22 @@ private:
   struct Panel {
     QDockWidget *dock = nullptr;
     QToolButton *button = nullptr;
+    bool wasOpen = true;  // the state "View only" restores
   };
   QDockWidget *addPanel(PanelId id, const char *objectName, const QString& title, QWidget *widget,
                         Qt::DockWidgetArea area);
+  // "View only" hides every open panel and restores exactly that set.
+  void setViewOnly(bool on);
+  // Panel visibility and sizes persist in the OpenSCAD settings store.
+  void saveLayout();
+  void restoreLayout();
+  void closeEvent(QCloseEvent *event) override;
 
   EngineSession *session_ = nullptr;
   std::string currentFile_;
   std::array<Panel, PanelCount> panels_;
+  QToolButton *viewOnlyButton_ = nullptr;
+  bool switchingViewOnly_ = false;
   QGLView *view_;
   QsciScintilla *code_;
   QListWidget *files_;

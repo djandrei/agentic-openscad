@@ -1,10 +1,12 @@
 #include "mcp/viewer/ViewerWindow.h"
 
+#include <QCloseEvent>
 #include <QColor>
 #include <QDockWidget>
 #include <QFont>
 #include <QFontDatabase>
 #include <QHeaderView>
+#include <QKeySequence>
 #include <QLabel>
 #include <QListWidget>
 #include <QPlainTextEdit>
@@ -13,6 +15,7 @@
 #include <QTableWidget>
 #include <QTextBrowser>
 #include <QTime>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -35,6 +38,7 @@
 #include "glview/Renderer.h"
 #include "glview/preview/ThrownTogetherRenderer.h"
 #include "gui/QGLView.h"
+#include "gui/QSettingsCached.h"
 #include "gui/ScadLexer.h"
 #include "mcp/session/EngineSession.h"
 #include "mcp/session/FileStore.h"
@@ -71,6 +75,7 @@ ViewerWindow::ViewerWindow()
   setWindowTitle(tr("Agentic OpenSCAD"));
   resize(1400, 900);
   buildUi();
+  restoreLayout();
 }
 
 void ViewerWindow::buildUi()
@@ -187,7 +192,52 @@ void ViewerWindow::buildUi()
   statusBar()->addWidget(pauseButton_);
   statusBar()->addWidget(statusLabel_, 1);
   for (const Panel& panel : panels_) statusBar()->addPermanentWidget(panel.button);
+
+  viewOnlyButton_ = new QToolButton(this);
+  viewOnlyButton_->setCheckable(true);
+  viewOnlyButton_->setText(tr("View only"));
+  viewOnlyButton_->setShortcut(QKeySequence(Qt::Key_F11));
+  viewOnlyButton_->setToolTip(
+    tr("Hide every panel so the view fills the window (F11); press again to bring them back."));
+  connect(viewOnlyButton_, &QToolButton::toggled, this, &ViewerWindow::setViewOnly);
+  statusBar()->addPermanentWidget(viewOnlyButton_);
   statusBar()->addPermanentWidget(serverLabel_);
+}
+
+void ViewerWindow::setViewOnly(bool on)
+{
+  switchingViewOnly_ = true;
+  for (Panel& panel : panels_) {
+    if (on) {
+      panel.wasOpen = panel.dock->toggleViewAction()->isChecked();
+      panel.dock->hide();
+    } else {
+      panel.dock->setVisible(panel.wasOpen);
+    }
+  }
+  switchingViewOnly_ = false;
+  if (!on) saveLayout();
+}
+
+void ViewerWindow::saveLayout()
+{
+  if (!viewOnlyButton_ || viewOnlyButton_->isChecked()) return;  // "View only" is temporary
+  // Only the dock layout; window placement is the window manager's business.
+  QSettingsCached settings;
+  settings.setValue("agent/viewerState", saveState());
+}
+
+void ViewerWindow::restoreLayout()
+{
+  const QSettingsCached settings;
+  restoreState(settings.value("agent/viewerState").toByteArray());
+}
+
+void ViewerWindow::closeEvent(QCloseEvent *event)
+{
+  if (viewOnlyButton_->isChecked()) viewOnlyButton_->setChecked(false);
+  saveLayout();
+  QMainWindow::closeEvent(event);
 }
 
 QDockWidget *ViewerWindow::addPanel(PanelId id, const char *objectName, const QString& title,
@@ -205,6 +255,17 @@ QDockWidget *ViewerWindow::addPanel(PanelId id, const char *objectName, const QS
   button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
   button->setToolTip(tr("Show or hide the %1 panel").arg(title));
   panels_[id] = Panel{dock, button};
+
+  connect(dock->toggleViewAction(), &QAction::toggled, this, [this](bool visible) {
+    if (switchingViewOnly_) return;
+    // Opening a panel by hand ends "View only" without touching the others.
+    if (visible && viewOnlyButton_ && viewOnlyButton_->isChecked()) {
+      const QSignalBlocker blocker(viewOnlyButton_);
+      viewOnlyButton_->setChecked(false);
+    }
+    // After the show/hide has been applied to the layout.
+    QTimer::singleShot(0, this, &ViewerWindow::saveLayout);
+  });
   return dock;
 }
 
