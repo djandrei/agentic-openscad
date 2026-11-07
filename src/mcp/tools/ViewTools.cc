@@ -121,9 +121,9 @@ void registerViewTools(ToolRegistry& tools, SessionManager& sessions)
   for (const auto& [key, value] : captureProperties.items()) properties[key] = value;
   tools.add(ToolDef{
     "view_capture",
-    "Capture PNG images of the model from one or more views and return them as image content. In "
-    "GUI mode the capture shows what the user sees (the 3D view, scaled to the requested size); in "
-    "headless mode the model is drawn offscreen (preview or render look). Use render mode after "
+    "Capture PNG images of the model from one or more views and return them as image content. The "
+    "images are always drawn offscreen from the session's last preview or render with the agent's "
+    "camera, in viewer and headless mode alike (preview or render look). Use render mode after "
     "`render` to see the final mesh. Edge/axis/color overrides apply to the capture only.",
     json{{"type", "object"}, {"properties", properties}, {"additionalProperties", false}},
     [&sessions](const json& args) {

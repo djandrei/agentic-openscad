@@ -190,7 +190,7 @@ Get or set view options: edges, axes, crosshairs, scales, colorScheme, and the v
 
 ### `view_capture`
 
-Capture PNG images of the model from one or more views and return them as image content. In GUI mode the capture shows what the user sees (the 3D view, scaled to the requested size); in headless mode the model is drawn offscreen (preview or render look). Use render mode after `render` to see the final mesh. Edge/axis/color overrides apply to the capture only.
+Capture PNG images of the model from one or more views and return them as image content. The images are always drawn offscreen from the session's last preview or render with the agent's camera, in viewer and headless mode alike (preview or render look). Use render mode after `render` to see the final mesh. Edge/axis/color overrides apply to the capture only.
 
 | argument | type | description |
 |---|---|---|
