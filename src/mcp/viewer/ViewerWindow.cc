@@ -1,13 +1,13 @@
 #include "mcp/viewer/ViewerWindow.h"
 
 #include <QColor>
+#include <QDockWidget>
 #include <QFont>
 #include <QFontDatabase>
 #include <QHeaderView>
 #include <QLabel>
 #include <QListWidget>
 #include <QPlainTextEdit>
-#include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QTableWidget>
@@ -125,12 +125,6 @@ void ViewerWindow::buildUi()
   lexer->setColor(QColor(0x80, 0x80, 0x80), ScadLexer2::Comment);
   lexer->setColor(QColor(0xb0, 0x00, 0x20), ScadLexer2::SpecialVariable);
 
-  auto *left = new QSplitter(Qt::Vertical, this);
-  left->addWidget(files_);
-  left->addWidget(code_);
-  left->setStretchFactor(0, 1);
-  left->setStretchFactor(1, 5);
-
   // Center: the 3D view. QGLView leaves its mouse-action table uninitialized
   // (the classic MainWindow fills it from the preferences); without this a
   // drag multiplies the mouse delta by garbage and QGLView::normalizeAngle
@@ -154,37 +148,31 @@ void ViewerWindow::buildUi()
   messages_->setOpenLinks(false);
   messages_->setPlaceholderText(tr("Messages of the last compile appear here."));
 
-  auto *right = new QSplitter(Qt::Vertical, this);
-  right->addWidget(parameters_);
-  right->addWidget(messages_);
-  right->setStretchFactor(0, 1);
-  right->setStretchFactor(1, 2);
-
-  auto *top = new QSplitter(Qt::Horizontal, this);
-  top->addWidget(left);
-  top->addWidget(view_);
-  top->addWidget(right);
-  top->setStretchFactor(0, 3);
-  top->setStretchFactor(1, 6);
-  top->setStretchFactor(2, 3);
-  top->setSizes({360, 720, 320});
-
   // Bottom: activity log and change stream, one pair per project.
   activityStack_ = new QStackedWidget(this);
   changesStack_ = new QStackedWidget(this);
   selectPanes("");
 
-  auto *bottom = new QSplitter(Qt::Horizontal, this);
-  bottom->addWidget(activityStack_);
-  bottom->addWidget(changesStack_);
-
-  auto *main = new QSplitter(Qt::Vertical, this);
-  main->addWidget(top);
-  main->addWidget(bottom);
-  main->setStretchFactor(0, 4);
-  main->setStretchFactor(1, 1);
-  main->setSizes({700, 160});
-  setCentralWidget(main);
+  // The view is the central widget; the panels are docks around it.
+  setCentralWidget(view_);
+  setDockOptions(QMainWindow::AnimatedDocks);
+  setCorner(Qt::BottomLeftCorner, Qt::BottomDockWidgetArea);
+  setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
+  auto *filesDock = addPanel(PanelFiles, "files", tr("Files"), files_, Qt::LeftDockWidgetArea);
+  auto *codeDock = addPanel(PanelCode, "code", tr("Code"), code_, Qt::LeftDockWidgetArea);
+  auto *parametersDock =
+    addPanel(PanelParameters, "parameters", tr("Parameters"), parameters_, Qt::RightDockWidgetArea);
+  auto *messagesDock =
+    addPanel(PanelMessages, "messages", tr("Messages"), messages_, Qt::RightDockWidgetArea);
+  auto *activityDock =
+    addPanel(PanelActivity, "activity", tr("Activity"), activityStack_, Qt::BottomDockWidgetArea);
+  auto *changesDock =
+    addPanel(PanelChanges, "changes", tr("Changes"), changesStack_, Qt::BottomDockWidgetArea);
+  resizeDocks({filesDock, parametersDock}, {360, 320}, Qt::Horizontal);
+  resizeDocks({filesDock, codeDock}, {110, 560}, Qt::Vertical);
+  resizeDocks({parametersDock, messagesDock}, {220, 450}, Qt::Vertical);
+  resizeDocks({activityDock, changesDock}, {700, 700}, Qt::Horizontal);
+  resizeDocks({activityDock}, {150}, Qt::Vertical);
 
   pauseButton_ = new QToolButton(this);
   pauseButton_->setCheckable(true);
@@ -198,7 +186,26 @@ void ViewerWindow::buildUi()
   serverLabel_ = new QLabel(this);
   statusBar()->addWidget(pauseButton_);
   statusBar()->addWidget(statusLabel_, 1);
+  for (const Panel& panel : panels_) statusBar()->addPermanentWidget(panel.button);
   statusBar()->addPermanentWidget(serverLabel_);
+}
+
+QDockWidget *ViewerWindow::addPanel(PanelId id, const char *objectName, const QString& title,
+                                    QWidget *widget, Qt::DockWidgetArea area)
+{
+  auto *dock = new QDockWidget(title, this);
+  dock->setObjectName(QString::fromLatin1(objectName));  // stable key for saveState()
+  dock->setFeatures(QDockWidget::DockWidgetClosable);
+  dock->setAllowedAreas(area);
+  dock->setWidget(widget);
+  addDockWidget(area, dock);
+
+  auto *button = new QToolButton(this);
+  button->setDefaultAction(dock->toggleViewAction());
+  button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+  button->setToolTip(tr("Show or hide the %1 panel").arg(title));
+  panels_[id] = Panel{dock, button};
+  return dock;
 }
 
 void ViewerWindow::setServerStatus(const QString& text)

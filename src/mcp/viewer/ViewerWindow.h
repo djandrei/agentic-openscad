@@ -4,12 +4,14 @@
 #include <QMainWindow>
 #include <QString>
 
+#include <array>
 #include <map>
 #include <memory>
 #include <string>
 
 #include "mcp/session/SessionObserver.h"
 
+class QDockWidget;
 class QGLView;
 class QLabel;
 class QListWidget;
@@ -87,8 +89,28 @@ private:
   ProjectPanes& panesFor(const std::string& projectRoot);
   void selectPanes(const std::string& projectRoot);
 
+  // Every panel is a closable dock with a fixed position; a toggle button
+  // per panel lives in the status bar. The 3D view is the central widget,
+  // so it fills whatever the hidden panels free up.
+  enum PanelId {
+    PanelFiles,
+    PanelCode,
+    PanelParameters,
+    PanelMessages,
+    PanelActivity,
+    PanelChanges,
+    PanelCount
+  };
+  struct Panel {
+    QDockWidget *dock = nullptr;
+    QToolButton *button = nullptr;
+  };
+  QDockWidget *addPanel(PanelId id, const char *objectName, const QString& title, QWidget *widget,
+                        Qt::DockWidgetArea area);
+
   EngineSession *session_ = nullptr;
   std::string currentFile_;
+  std::array<Panel, PanelCount> panels_;
   QGLView *view_;
   QsciScintilla *code_;
   QListWidget *files_;
