@@ -26,8 +26,11 @@ std::string serverInstructions()
          "are the source of truth: write them with file_write (whole content or exact edits, with "
          "baseVersion from file_read to detect concurrent changes); in GUI mode the user sees "
          "every change in the editor. Use status to see the open projects, the run mode (gui or "
-         "headless) and whether the user paused you. Call tools/list for the full tool set; the "
-         "OpenSCAD language itself is unchanged.";
+         "headless) and whether the user paused you. Typical loop: file_write, check, preview "
+         "(read the messages), view_capture to look at the model, render, geometry_info, export. "
+         "docs_builtin/docs_search/docs_page answer OpenSCAD language questions; library_catalog and "
+         "library_install add libraries; params_* drive the customizer. The OpenSCAD language itself "
+         "is unchanged.";
 }
 
 void registerCoreTools(ToolRegistry& tools, SessionManager& sessions)

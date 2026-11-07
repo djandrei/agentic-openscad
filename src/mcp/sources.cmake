@@ -7,6 +7,10 @@
 
 list(APPEND CORE_SOURCES
   src/mcp/BuildInfo.cc
+  src/mcp/docs/BuiltinDocs.cc
+  src/mcp/docs/Docs.cc
+  src/mcp/docs/Html.cc
+  src/mcp/docs/SearchIndex.cc
   src/mcp/engine/Base64.cc
   src/mcp/engine/CompileEngine.cc
   src/mcp/engine/ParamEngine.cc
@@ -31,6 +35,7 @@ list(APPEND CORE_SOURCES
   src/mcp/session/SessionManager.cc
   src/mcp/tools/CompileTools.cc
   src/mcp/tools/CoreTools.cc
+  src/mcp/tools/DocsTools.cc
   src/mcp/tools/FileTools.cc
   src/mcp/tools/LibraryTools.cc
   src/mcp/tools/ParamTools.cc

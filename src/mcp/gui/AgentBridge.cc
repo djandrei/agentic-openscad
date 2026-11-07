@@ -26,6 +26,7 @@
 #include "mcp/session/MessageLog.h"
 #include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
+#include "mcp/tools/DocsTools.h"
 #include "mcp/tools/FileTools.h"
 #include "mcp/tools/LibraryTools.h"
 #include "mcp/tools/ParamTools.h"
@@ -95,6 +96,8 @@ AgentBridge::AgentBridge(OpenSCADApp *app, Options options)
   registerViewTools(tools_, sessions_);
   registerParamTools(tools_, sessions_);
   registerLibraryTools(tools_, sessions_);
+  registerDocsTools(tools_, sessions_);
+  registerDocsResources(resources_, prompts_, sessions_);
   server_ =
     std::make_unique<Server>(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()},
                              tools_, resources_, prompts_);

@@ -18,6 +18,7 @@
 #include "mcp/session/SessionManager.h"
 #include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
+#include "mcp/tools/DocsTools.h"
 #include "mcp/tools/FileTools.h"
 #include "mcp/tools/LibraryTools.h"
 #include "mcp/tools/ParamTools.h"
@@ -67,6 +68,8 @@ int runHeadless(const Options& options)
   registerViewTools(tools, sessions);
   registerParamTools(tools, sessions);
   registerLibraryTools(tools, sessions);
+  registerDocsTools(tools, sessions);
+  registerDocsResources(resources, prompts, sessions);
   Server server(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()}, tools, resources,
                 prompts);
 

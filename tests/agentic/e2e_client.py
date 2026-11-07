@@ -264,6 +264,20 @@ def run_scenario(client, project_dir, expect_mode=None):
     s.tool_ok("file_write", project=project, path="main.scad", content="cube(20);\n")
     s.tool_ok("render", project=project)
 
+    # Documentation
+    cube_doc = s.tool_ok("docs_builtin", name="cube")
+    s.check(cube_doc.get("kind") == "module" and len(cube_doc.get("signatures", [])) >= 2, "docs_builtin describes cube")
+    hits = s.tool_ok("docs_search", query="extrude twist", scope="builtins")
+    s.check(any(h["id"] == "builtins/linear_extrude" for h in hits.get("hits", [])), "docs_search finds linear_extrude")
+    page = s.tool_ok("docs_page", id="builtins/difference")
+    s.check("subtracts" in page.get("text", "") or "minus" in page.get("text", ""), "docs_page reads a builtin page")
+    prompts = client.request("prompts/list")["result"]["prompts"]
+    s.check(any(p["name"] == "openscad-language-rules" for p in prompts), "language rules prompt listed")
+    resources = client.request("resources/list")["result"]["resources"]
+    s.check(any(r["uri"] == "openscad://docs/builtins" for r in resources), "builtins resource listed")
+    read = client.request("resources/read", {"uri": "openscad://docs/builtins/cylinder"})
+    s.check("cylinder" in read.get("result", {}).get("contents", [{}])[0].get("text", ""), "builtin resource readable")
+
     csg = s.tool_ok("csg_tree_dump", project=project)
     s.check("cube(size = [20, 20, 20]" in csg.get("text", ""), "csg_tree_dump shows the cube")
     checked = s.tool_ok("check", project=project)
