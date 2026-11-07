@@ -4,7 +4,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
+#include "io/export.h"
 #include "json/json.hpp"
 #include "mcp/session/ProjectSession.h"
 
@@ -36,6 +38,14 @@ public:
   void fileRemoved(const std::string& relativePath) override;
   void fileRenamed(const std::string& from, const std::string& to) override;
   CompileOutcome compile(const CompileRequest& request) override;
+  nlohmann::json cameraGet() const override;
+  nlohmann::json cameraSet(const nlohmann::json& spec) override;
+  nlohmann::json viewOptionsGet() const override;
+  nlohmann::json viewOptionsSet(const nlohmann::json& spec) override;
+  std::vector<view::CaptureImage> capture(const CaptureRequest& request) override;
+  nlohmann::json geometryInfo() override;
+  nlohmann::json exportGeometry(const std::string& format, const std::string& path,
+                                const nlohmann::json& options) override;
 
 private:
   static constexpr int kAgentChangeMarker = 12;
@@ -46,6 +56,9 @@ private:
   // Runs the GUI event loop until the window's compile lock is released or
   // the timeout passes; returns false on timeout.
   bool waitForCompileEnd(double timeoutSeconds);
+  std::string currentMode() const;
+  ViewOptions currentViewOptions() const;
+  void applyMode(const std::string& mode);
 
   MainWindow *window_;
   AgentBridge *bridge_;

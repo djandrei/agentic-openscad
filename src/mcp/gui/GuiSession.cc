@@ -1,7 +1,11 @@
 #include "mcp/gui/GuiSession.h"
 
+#include <QBuffer>
+#include <QByteArray>
 #include <QColor>
 #include <QElapsedTimer>
+#include <QImage>
+#include <QMetaObject>
 #include <QEventLoop>
 #include <QFileInfo>
 #include <QString>
@@ -20,7 +24,13 @@
 #include "gui/MainWindow.h"
 #include "gui/ScintillaEditor.h"
 #include "gui/TabManager.h"
+#include "glview/ColorMap.h"
+#include "glview/RenderSettings.h"
+#include "gui/QGLView.h"
+#include "gui/ViewportControl.h"
+#include "mcp/engine/Base64.h"
 #include "mcp/engine/CompileEngine.h"
+#include "mcp/engine/ViewEngine.h"
 #include "mcp/gui/AgentBridge.h"
 #include "mcp/gui/AgentDock.h"
 #include "mcp/protocol/Registry.h"
@@ -246,6 +256,217 @@ CompileOutcome GuiSession::compile(const CompileRequest& request)
     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
   finishOutcome(outcome, firstSeq, evaluated);
   return outcome;
+}
+
+std::string GuiSession::currentMode() const
+{
+  if (window_->viewActionPreview->isChecked()) return "preview";
+  if (window_->viewActionThrownTogether->isChecked()) return "thrownTogether";
+  return "render";
+}
+
+ViewOptions GuiSession::currentViewOptions() const
+{
+  ViewOptions options;
+  auto *gl = window_->qglview;
+  options.flags["edges"] = gl->showEdges();
+  options.flags["axes"] = gl->showAxes();
+  options.flags["crosshairs"] = gl->showCrosshairs();
+  options.flags["scales"] = gl->showScaleProportional();
+  options.previewer =
+    window_->viewActionThrownTogether->isChecked() ? Previewer::THROWNTOGETHER : Previewer::OPENCSG;
+  return options;
+}
+
+void GuiSession::applyMode(const std::string& mode)
+{
+  if (mode == "preview") {
+#ifdef ENABLE_OPENCSG
+    window_->viewModePreview();
+#else
+    window_->viewModeThrownTogether();
+#endif
+  } else if (mode == "thrownTogether") {
+    window_->viewModeThrownTogether();
+  } else if (mode == "render") {
+    if (!window_->rootGeom)
+      throw ToolError("no rendered geometry: call render before switching to render mode");
+    window_->viewModeRender();
+  } else {
+    throw ToolError("mode must be preview, render or thrownTogether");
+  }
+}
+
+nlohmann::json GuiSession::cameraGet() const
+{
+  return view::cameraToJson(window_->qglview->cam);
+}
+
+nlohmann::json GuiSession::cameraSet(const nlohmann::json& spec)
+{
+  auto *gl = window_->qglview;
+  const bool fit = view::applyCameraSpec(gl->cam, spec);
+  if (fit) gl->viewAll();
+  gl->update();
+  window_->viewportControlWidget->cameraChanged();
+  return view::cameraToJson(gl->cam);
+}
+
+nlohmann::json GuiSession::viewOptionsGet() const
+{
+  return view::viewOptionsToJson(currentViewOptions(), RenderSettings::inst()->colorscheme,
+                                 currentMode());
+}
+
+nlohmann::json GuiSession::viewOptionsSet(const nlohmann::json& spec)
+{
+  if (spec.contains("edges")) window_->viewActionShowEdges->setChecked(spec["edges"].get<bool>());
+  if (spec.contains("axes")) window_->viewActionShowAxes->setChecked(spec["axes"].get<bool>());
+  if (spec.contains("crosshairs")) {
+    window_->viewActionShowCrosshairs->setChecked(spec["crosshairs"].get<bool>());
+  }
+  if (spec.contains("scales")) {
+    window_->viewActionShowScaleProportional->setChecked(spec["scales"].get<bool>());
+  }
+  if (spec.contains("colorScheme")) {
+    const std::string name = spec["colorScheme"].get<std::string>();
+    if (!ColorMap::instance().findColorScheme(name)) throw ToolError("unknown color scheme: " + name);
+    QMetaObject::invokeMethod(window_, "setColorScheme", Qt::DirectConnection,
+                              Q_ARG(QString, QString::fromStdString(name)));
+  }
+  if (spec.contains("mode")) applyMode(spec["mode"].get<std::string>());
+  window_->qglview->update();
+  return viewOptionsGet();
+}
+
+namespace {
+
+// An unexposed QOpenGLWidget yields an all-black frame.
+bool looksBlank(const QImage& image)
+{
+  if (image.isNull()) return true;
+  for (int y = 0; y < image.height(); y += std::max(1, image.height() / 12)) {
+    for (int x = 0; x < image.width(); x += std::max(1, image.width() / 12)) {
+      const QRgb pixel = image.pixel(x, y);
+      if (qRed(pixel) || qGreen(pixel) || qBlue(pixel)) return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
+std::vector<view::CaptureImage> GuiSession::capture(const CaptureRequest& request)
+{
+  auto *gl = window_->qglview;
+  if (!request.mode.empty()) applyMode(request.mode);
+
+  const Camera savedCamera = gl->cam;
+  const bool savedEdges = gl->showEdges();
+  const bool savedAxes = gl->showAxes();
+  const bool savedCrosshairs = gl->showCrosshairs();
+  const bool savedScales = gl->showScaleProportional();
+  const std::string savedScheme = RenderSettings::inst()->colorscheme;
+
+  ViewOptions options = currentViewOptions();
+  std::string scheme = savedScheme;
+  view::applyViewOptionSpec(options, scheme, request.options);
+  gl->setShowEdges(options.flags["edges"]);
+  gl->setShowAxes(options.flags["axes"]);
+  gl->setShowCrosshairs(options.flags["crosshairs"]);
+  gl->setShowScaleProportional(options.flags["scales"]);
+  if (scheme != savedScheme) gl->setColorScheme(scheme);
+
+  std::vector<view::CaptureImage> images;
+  Camera lastCamera = savedCamera;
+  try {
+    for (const auto& spec : request.views) {
+      gl->cam = savedCamera;
+      std::string name = "current";
+      bool fit = false;
+      if (spec.is_string()) {
+        name = spec.get<std::string>();
+        if (name != "current") fit = view::applyCameraSpec(gl->cam, nlohmann::json{{"preset", name}});
+      } else if (spec.is_object()) {
+        name = spec.value("name", std::string("custom"));
+        fit = view::applyCameraSpec(gl->cam, spec);
+      }
+      if (fit) gl->viewAll();
+      gl->update();
+      const QImage frame = gl->grabFrame();
+      if (looksBlank(frame)) {
+        if (!window_->rootGeom) {
+          throw ToolError(
+            "capture failed: the 3D view is not exposed and nothing has been rendered; "
+            "call render first or make the OpenSCAD window visible");
+        }
+        images.push_back(view::captureGeometry(window_->rootGeom, gl->cam, options, scheme,
+                                               request.width, request.height, name));
+      } else {
+        const QImage scaled =
+          frame.scaled(static_cast<int>(request.width), static_cast<int>(request.height),
+                       Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QByteArray bytes;
+        QBuffer buffer(&bytes);
+        buffer.open(QIODevice::WriteOnly);
+        scaled.save(&buffer, "PNG");
+        view::CaptureImage image;
+        image.name = name;
+        image.pngBase64 =
+          base64Encode(std::string(bytes.constData(), static_cast<size_t>(bytes.size())));
+        image.width = static_cast<unsigned>(scaled.width());
+        image.height = static_cast<unsigned>(scaled.height());
+        image.camera = view::cameraToJson(gl->cam);
+        images.push_back(std::move(image));
+      }
+      lastCamera = gl->cam;
+    }
+  } catch (...) {
+    gl->setShowEdges(savedEdges);
+    gl->setShowAxes(savedAxes);
+    gl->setShowCrosshairs(savedCrosshairs);
+    gl->setShowScaleProportional(savedScales);
+    if (scheme != savedScheme) gl->setColorScheme(savedScheme);
+    gl->cam = savedCamera;
+    gl->update();
+    throw;
+  }
+
+  gl->setShowEdges(savedEdges);
+  gl->setShowAxes(savedAxes);
+  gl->setShowCrosshairs(savedCrosshairs);
+  gl->setShowScaleProportional(savedScales);
+  if (scheme != savedScheme) gl->setColorScheme(savedScheme);
+  gl->cam = request.keep ? lastCamera : savedCamera;
+  gl->update();
+  window_->viewportControlWidget->cameraChanged();
+  return images;
+}
+
+nlohmann::json GuiSession::geometryInfo()
+{
+  if (!window_->rootGeom) throw ToolError("no rendered geometry: call render first");
+  return view::geometryInfo(window_->rootGeom);
+}
+
+nlohmann::json GuiSession::exportGeometry(const std::string& format, const std::string& path,
+                                          const nlohmann::json& options)
+{
+  if (!window_->rootGeom) throw ToolError("no rendered geometry: call render first");
+  fs::path target;
+  try {
+    target = project().resolve(path);
+  } catch (const std::invalid_argument& e) {
+    throw ToolError(e.what());
+  }
+  const std::string source = window_->activeEditor && !window_->activeEditor->filepath.isEmpty()
+                               ? window_->activeEditor->filepath.toStdString()
+                               : project().mainPath().string();
+  nlohmann::json result =
+    view::exportGeometry(window_->rootGeom, format, target, options, source, window_->qglview->cam,
+                         currentViewOptions(), RenderSettings::inst()->colorscheme);
+  result["path"] = project().relative(target);
+  return result;
 }
 
 }  // namespace mcp

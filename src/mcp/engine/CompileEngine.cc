@@ -108,7 +108,8 @@ EngineResult CompileEngine::run(const fs::path& file, CompileMode mode, double t
   }
   result.parseMs = millisSince(started);
   if (!parsed) return result;
-  std::unique_ptr<SourceFile> rootFile(parsed);
+  std::shared_ptr<SourceFile> rootFile(parsed);
+  result.sourceFile = rootFile;
   result.parsed = true;
   rootFile->handleDependencies();
   if (wantDumps) result.ast = rootFile->dump("");
@@ -155,6 +156,8 @@ EngineResult CompileEngine::run(const fs::path& file, CompileMode mode, double t
     return result;
   }
   result.instantiated = true;
+  result.rootNode = rootNode;
+  result.documentPath = parent.string();
 
   Tree tree(rootNode, parent.string());
   const auto geometryStart = Clock::now();

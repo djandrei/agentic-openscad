@@ -8,6 +8,7 @@
 
 #include "json/json.hpp"
 #include "mcp/engine/CompileEngine.h"
+#include "mcp/engine/ViewEngine.h"
 #include "mcp/session/FileStore.h"
 #include "mcp/session/MessageLog.h"
 #include "mcp/session/Project.h"
@@ -37,6 +38,16 @@ struct CompileOutcome {
   int warnings = 0;
   double millis = 0;
   nlohmann::json geometry;  // Render: CompileEngine::geometrySummary
+};
+
+struct CaptureRequest {
+  std::vector<nlohmann::json> views;  // each: "current", a preset name, or a camera spec object
+  unsigned width = 800;
+  unsigned height = 600;
+  std::string mode;        // "", "preview", "render" or "thrownTogether"
+  nlohmann::json options;  // view option overrides for this capture
+  bool keep = false;       // keep the last view's camera afterwards
+  double timeoutSeconds = 120;
 };
 
 // One open project. Tool handlers are written against this interface; the
@@ -78,6 +89,20 @@ public:
   // messages of that run. Throws ToolError when the file is missing, the
   // session is busy, or the session cannot compile at all (the default).
   virtual CompileOutcome compile(const CompileRequest& request);
+
+  // Camera and view options of the 3D view (GUI) or of the virtual view
+  // used for captures (headless). Specs are partial; the new state is returned.
+  virtual nlohmann::json cameraGet() const;
+  virtual nlohmann::json cameraSet(const nlohmann::json& spec);
+  virtual nlohmann::json viewOptionsGet() const;
+  virtual nlohmann::json viewOptionsSet(const nlohmann::json& spec);
+  // PNG captures of the model, one per requested view.
+  virtual std::vector<view::CaptureImage> capture(const CaptureRequest& request);
+  // Statistics of the last rendered geometry (render first).
+  virtual nlohmann::json geometryInfo();
+  // Writes the last rendered geometry to a file inside the project.
+  virtual nlohmann::json exportGeometry(const std::string& format, const std::string& path,
+                                        const nlohmann::json& options);
 
 protected:
   // Fills message list, counts and ok flag from the log captured since `firstSeq`.

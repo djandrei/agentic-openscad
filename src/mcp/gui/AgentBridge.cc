@@ -27,6 +27,7 @@
 #include "mcp/tools/CompileTools.h"
 #include "mcp/tools/CoreTools.h"
 #include "mcp/tools/FileTools.h"
+#include "mcp/tools/ViewTools.h"
 #include "utils/printutils.h"
 #include "version.h"
 
@@ -89,6 +90,7 @@ AgentBridge::AgentBridge(OpenSCADApp *app, Options options)
   registerCoreTools(tools_, sessions_);
   registerFileTools(tools_, sessions_);
   registerCompileTools(tools_, sessions_);
+  registerViewTools(tools_, sessions_);
   server_ =
     std::make_unique<Server>(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()},
                              tools_, resources_, prompts_);

@@ -6,7 +6,9 @@
 
 #include "json/json.hpp"
 
+class AbstractNode;
 class Geometry;
+class SourceFile;
 
 namespace mcp {
 
@@ -21,9 +23,13 @@ struct EngineResult {
   bool instantiated = false;
   bool timedOut = false;
   std::shared_ptr<const Geometry> geometry;  // Render only
-  std::string ast;                           // when dumps requested (Check and later)
-  std::string csgTree;                       // when dumps requested (Preview and later)
-  std::string csgProducts;                   // when dumps requested (Preview and later)
+  // Kept alive so previews can be drawn later (headless captures).
+  std::shared_ptr<SourceFile> sourceFile;
+  std::shared_ptr<const AbstractNode> rootNode;
+  std::string documentPath;
+  std::string ast;          // when dumps requested (Check and later)
+  std::string csgTree;      // when dumps requested (Preview and later)
+  std::string csgProducts;  // when dumps requested (Preview and later)
   double parseMs = 0;
   double evaluateMs = 0;
   double geometryMs = 0;

@@ -7,7 +7,9 @@
 
 list(APPEND CORE_SOURCES
   src/mcp/BuildInfo.cc
+  src/mcp/engine/Base64.cc
   src/mcp/engine/CompileEngine.cc
+  src/mcp/engine/ViewEngine.cc
   src/mcp/headless/HeadlessMain.cc
   src/mcp/headless/HeadlessSession.cc
   src/mcp/protocol/JsonRpc.cc
@@ -23,6 +25,7 @@ list(APPEND CORE_SOURCES
   src/mcp/tools/CompileTools.cc
   src/mcp/tools/CoreTools.cc
   src/mcp/tools/FileTools.cc
+  src/mcp/tools/ViewTools.cc
   src/mcp/transport/HttpTransport.cc
   src/mcp/transport/StdioTransport.cc
 )

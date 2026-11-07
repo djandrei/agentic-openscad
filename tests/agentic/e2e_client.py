@@ -200,6 +200,30 @@ def run_scenario(client, project_dir, expect_mode=None):
     s.check(geometry.get("dimension") == 3 and geometry.get("empty") is False, "render reports 3D geometry")
     s.check(geometry.get("boundingBox", {}).get("max") == [20, 20, 20], "render bounding box is 20x20x20")
 
+    # Visual and geometric feedback
+    info = s.tool_ok("geometry_info", project=project)
+    s.check(abs(info.get("volume", 0) - 8000) < 1e-6, "geometry_info volume is 8000")
+    s.check(abs(info.get("surfaceArea", 0) - 2400) < 1e-6, "geometry_info surface area is 2400")
+
+    camera = s.tool_ok("camera_set", project=project, preset="diagonal")
+    s.check(camera.get("vpr") == [55, 0, 25], "camera_set diagonal reports vpr [55, 0, 25]")
+    s.check(s.tool_ok("camera_get", project=project).get("vpr") == [55, 0, 25], "camera_get agrees")
+    options = s.tool_ok("view_options", project=project, edges=True)
+    s.check(options.get("edges") is True, "view_options enables edges")
+
+    response = client.request("tools/call", {"name": "view_capture",
+                                              "arguments": {"project": project, "views": ["diagonal", "top"],
+                                                            "width": 320, "height": 240, "mode": "render"}})
+    result = response.get("result", {})
+    images = [c for c in result.get("content", []) if c.get("type") == "image"]
+    s.check(not result.get("isError") and len(images) == 2 and all(i["data"].startswith("iVBOR") for i in images),
+            "view_capture returns two PNG images" +
+            ("" if not result.get("isError") else ": " + result["content"][0]["text"]))
+
+    exported = s.tool_ok("export", project=project, format="binstl", path="out/cube.stl")
+    s.check(exported.get("bytes", 0) > 84 and os.path.exists(os.path.join(project, "out", "cube.stl")),
+            "export writes out/cube.stl")
+
     csg = s.tool_ok("csg_tree_dump", project=project)
     s.check("cube(size = [20, 20, 20]" in csg.get("text", ""), "csg_tree_dump shows the cube")
     checked = s.tool_ok("check", project=project)

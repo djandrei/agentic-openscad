@@ -9,6 +9,42 @@ CompileOutcome ProjectSession::compile(const CompileRequest&)
   throw ToolError("this session cannot compile files");
 }
 
+nlohmann::json ProjectSession::cameraGet() const
+{
+  throw ToolError("this session has no view");
+}
+
+nlohmann::json ProjectSession::cameraSet(const nlohmann::json&)
+{
+  throw ToolError("this session has no view");
+}
+
+nlohmann::json ProjectSession::viewOptionsGet() const
+{
+  throw ToolError("this session has no view");
+}
+
+nlohmann::json ProjectSession::viewOptionsSet(const nlohmann::json&)
+{
+  throw ToolError("this session has no view");
+}
+
+std::vector<view::CaptureImage> ProjectSession::capture(const CaptureRequest&)
+{
+  throw ToolError("this session cannot capture views");
+}
+
+nlohmann::json ProjectSession::geometryInfo()
+{
+  throw ToolError("this session has no geometry");
+}
+
+nlohmann::json ProjectSession::exportGeometry(const std::string&, const std::string&,
+                                              const nlohmann::json&)
+{
+  throw ToolError("this session cannot export");
+}
+
 void ProjectSession::finishOutcome(CompileOutcome& outcome, std::uint64_t firstSeq,
                                    bool evaluatedWithoutError)
 {
