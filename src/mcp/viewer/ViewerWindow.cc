@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "core/MouseConfig.h"
 #include "core/Tree.h"
 #include "geometry/Geometry.h"
 #include "geometry/PolySet.h"
@@ -118,8 +119,14 @@ void ViewerWindow::buildUi()
   left->setStretchFactor(0, 1);
   left->setStretchFactor(1, 5);
 
-  // Center: the 3D view.
+  // Center: the 3D view. QGLView leaves its mouse-action table uninitialized
+  // (the classic MainWindow fills it from the preferences); without this a
+  // drag multiplies the mouse delta by garbage and QGLView::normalizeAngle
+  // never terminates.
   view_ = new QGLView(this);
+  for (const auto& [mouseAction, viewAction] : MouseConfig::presetSettings.at(MouseConfig::OPEN_SCAD)) {
+    view_->setMouseActions(mouseAction, MouseConfig::viewActionArrays.at(viewAction));
+  }
 
   // Right: parameters over messages.
   parameters_ = new QTableWidget(0, 3, this);
