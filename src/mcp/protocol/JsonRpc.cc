@@ -79,8 +79,9 @@ bool isNotification(const json& message)
 std::string serialize(const json& message)
 {
   // dump() with default indent (-1) emits no newlines; control characters in
-  // strings are escaped.
-  return message.dump();
+  // strings are escaped. Invalid UTF-8 (binary file contents) is replaced
+  // instead of aborting the response.
+  return message.dump(-1, ' ', false, json::error_handler_t::replace);
 }
 
 }  // namespace mcp::jsonrpc

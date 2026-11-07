@@ -16,6 +16,7 @@
 #include "mcp/protocol/Server.h"
 #include "mcp/session/SessionManager.h"
 #include "mcp/tools/CoreTools.h"
+#include "mcp/tools/FileTools.h"
 #include "mcp/transport/HttpTransport.h"
 #include "mcp/transport/StdioTransport.h"
 #include "version.h"
@@ -55,6 +56,7 @@ int runHeadless(const Options& options)
     return std::make_unique<HeadlessSession>(std::move(project));
   });
   registerCoreTools(tools, sessions);
+  registerFileTools(tools, sessions);
   Server server(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()}, tools, resources,
                 prompts);
 

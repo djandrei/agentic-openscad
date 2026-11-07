@@ -4,6 +4,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "json/json.hpp"
@@ -15,11 +16,20 @@ namespace mcp {
 using json = nlohmann::json;
 
 // Thrown by tool handlers to report a user-visible failure. The server turns it
-// into a tool result with isError = true (not a JSON-RPC error).
+// into a tool result with isError = true (not a JSON-RPC error). `data` is
+// returned as structuredContent so the agent can act on it (e.g. the current
+// file version after a conflict).
 class ToolError : public std::runtime_error
 {
 public:
-  using std::runtime_error::runtime_error;
+  explicit ToolError(const std::string& message, json data = nullptr)
+    : std::runtime_error(message), data_(std::move(data))
+  {
+  }
+  const json& data() const { return data_; }
+
+private:
+  json data_;
 };
 
 json textContent(const std::string& text);
@@ -34,7 +44,7 @@ struct ToolResult {
   // Structured JSON result: the text content carries the pretty-printed JSON
   // for clients that only read text; structuredContent carries it verbatim.
   static ToolResult data(const json& structured);
-  static ToolResult error(const std::string& message);
+  static ToolResult error(const std::string& message, json data = nullptr);
 
   json toJson() const;
 };

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "gui/Editor.h"
@@ -21,12 +22,35 @@
 #include "mcp/gui/AgentStatusWidget.h"
 #include "mcp/gui/GuiSession.h"
 #include "mcp/tools/CoreTools.h"
+#include "mcp/tools/FileTools.h"
 #include "utils/printutils.h"
 #include "version.h"
 
 namespace fs = std::filesystem;
 
 namespace mcp {
+
+namespace {
+
+// Compact one-line rendering of tool arguments for the activity log.
+QString summarizeArgs(const nlohmann::json& args)
+{
+  if (!args.is_object() || args.empty()) return QString();
+  nlohmann::json shortened = nlohmann::json::object();
+  for (const auto& [key, value] : args.items()) {
+    if (value.is_string() && value.get<std::string>().size() > 60) {
+      shortened[key] = value.get<std::string>().substr(0, 57) + "...";
+    } else if (value.is_array() || value.is_object()) {
+      shortened[key] = value.is_array() ? "[" + std::to_string(value.size()) + " items]" : "{...}";
+    } else {
+      shortened[key] = value;
+    }
+  }
+  return QString::fromStdString(
+    shortened.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+}
+
+}  // namespace
 
 AgentBridge *AgentBridge::createIfConfigured(OpenSCADApp *app)
 {
@@ -58,9 +82,22 @@ AgentBridge::AgentBridge(OpenSCADApp *app, Options options)
               [this](std::shared_ptr<Project> project) { return makeSession(std::move(project)); })
 {
   registerCoreTools(tools_, sessions_);
+  registerFileTools(tools_, sessions_);
   server_ =
     std::make_unique<Server>(ServerInfo{serverName(), openscad_versionnumber, serverInstructions()},
                              tools_, resources_, prompts_);
+  server_->setToolObserver([this](const std::string& name, const nlohmann::json& args,
+                                  const ToolResult& result, double millis) {
+    emit toolCalled(QString::fromStdString(name), summarizeArgs(args), !result.isError, millis);
+  });
+  server_->setToolGate([this](const std::string& name) -> std::optional<std::string> {
+    if (paused_ && name != "status" && name != "version") {
+      return std::string(
+        "paused: the user paused the agent in the OpenSCAD GUI. Wait and retry; "
+        "status reports paused=false once resumed.");
+    }
+    return std::nullopt;
+  });
   token_ = options_.token.empty() ? generateToken() : options_.token;
 }
 
@@ -149,6 +186,24 @@ void AgentBridge::setAutoStart(bool enabled)
   QSettingsCached().setValue("agent/autoStart", enabled);
 }
 
+void AgentBridge::setPaused(bool paused)
+{
+  if (paused_ == paused) return;
+  paused_ = paused;
+  emit stateChanged();
+}
+
+bool AgentBridge::followAgent() const
+{
+  return QSettingsCached().value("agent/followAgent", true).toBool();
+}
+
+void AgentBridge::setFollowAgent(bool follow)
+{
+  QSettingsCached().setValue("agent/followAgent", follow);
+  emit stateChanged();
+}
+
 void AgentBridge::execute(const std::function<void()>& fn)
 {
   if (QThread::currentThread() == thread()) {
@@ -201,7 +256,7 @@ std::unique_ptr<ProjectSession> AgentBridge::makeSession(std::shared_ptr<Project
   }
   window->setWindowTitle(QString::fromStdString(project->name()) + " - OpenSCAD");
   bindWindow(window, project->id());
-  return std::make_unique<GuiSession>(std::move(project), window);
+  return std::make_unique<GuiSession>(std::move(project), window, this);
 }
 
 }  // namespace mcp

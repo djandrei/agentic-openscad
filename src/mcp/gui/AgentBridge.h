@@ -21,7 +21,8 @@ namespace mcp {
 
 // Hosts the MCP server inside the GUI process. Owns the registries, the
 // server, the sessions and the HTTP transport; marshals every request onto
-// the GUI thread; maps projects to MainWindows.
+// the GUI thread; maps projects to MainWindows; holds the user-side controls
+// (pause, follow agent).
 class AgentBridge : public QObject
 {
   Q_OBJECT
@@ -50,10 +51,17 @@ public:
   bool autoStart() const;
   void setAutoStart(bool enabled);
 
+  // User controls shared by all windows.
+  bool paused() const { return paused_; }
+  void setPaused(bool paused);
+  bool followAgent() const;
+  void setFollowAgent(bool follow);
+
   SessionManager& sessions() { return sessions_; }
 
 signals:
   void stateChanged();
+  void toolCalled(const QString& name, const QString& argsSummary, bool ok, double millis);
 
 private:
   void execute(const std::function<void()>& fn);
@@ -71,6 +79,7 @@ private:
   SessionManager sessions_;
   std::unique_ptr<HttpTransport> transport_;
   std::string token_;
+  bool paused_ = false;
   QSet<MainWindow *> boundWindows_;
   QSet<MainWindow *> windowsWithStatusWidget_;
 };

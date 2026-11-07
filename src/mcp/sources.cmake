@@ -13,9 +13,12 @@ list(APPEND CORE_SOURCES
   src/mcp/protocol/Registry.cc
   src/mcp/protocol/Schema.cc
   src/mcp/protocol/Server.cc
+  src/mcp/session/Diff.cc
+  src/mcp/session/FileStore.cc
   src/mcp/session/Project.cc
   src/mcp/session/SessionManager.cc
   src/mcp/tools/CoreTools.cc
+  src/mcp/tools/FileTools.cc
   src/mcp/transport/HttpTransport.cc
   src/mcp/transport/StdioTransport.cc
 )
@@ -23,6 +26,7 @@ list(APPEND CORE_SOURCES
 if(NOT HEADLESS)
   list(APPEND CORE_SOURCES
     src/mcp/gui/AgentBridge.cc
+    src/mcp/gui/AgentDock.cc
     src/mcp/gui/AgentStatusWidget.cc
     src/mcp/gui/GuiSession.cc
   )

@@ -19,6 +19,10 @@ AgentStatusWidget::AgentStatusWidget(AgentBridge *bridge, QWidget *parent)
   setToolTip(tr("Agent MCP server"));
 
   toggleAction_ = menu_->addAction(QString(), this, &AgentStatusWidget::toggleServer);
+  pauseAction_ = menu_->addAction(tr("Pause agent"));
+  pauseAction_->setCheckable(true);
+  connect(pauseAction_, &QAction::toggled, this, [this](bool checked) { bridge_->setPaused(checked); });
+  menu_->addSeparator();
   copyCommandAction_ =
     menu_->addAction(tr("Copy Claude Code command"), this, &AgentStatusWidget::copyCommand);
   copyTokenAction_ = menu_->addAction(tr("Copy bearer token"), this, &AgentStatusWidget::copyToken);
@@ -37,8 +41,15 @@ AgentStatusWidget::AgentStatusWidget(AgentBridge *bridge, QWidget *parent)
 void AgentStatusWidget::refresh()
 {
   const bool running = bridge_->running();
-  setText(running ? tr("Agent: :%1").arg(bridge_->port()) : tr("Agent: off"));
+  if (!running) {
+    setText(tr("Agent: off"));
+  } else if (bridge_->paused()) {
+    setText(tr("Agent: paused"));
+  } else {
+    setText(tr("Agent: :%1").arg(bridge_->port()));
+  }
   toggleAction_->setText(running ? tr("Stop MCP server") : tr("Start MCP server"));
+  pauseAction_->setChecked(bridge_->paused());
   copyCommandAction_->setEnabled(running);
   copyTokenAction_->setEnabled(running);
   portAction_->setText(tr("Set port… (%1)").arg(bridge_->configuredPort()));

@@ -25,6 +25,12 @@ class Server
 {
 public:
   using NotificationSink = std::function<void(const json&)>;
+  // Called after every tools/call with the outcome and the wall time in ms.
+  using ToolObserver = std::function<void(const std::string& name, const json& args,
+                                          const ToolResult& result, double millis)>;
+  // Consulted before running a tool; a returned string blocks the call with
+  // that message as a tool error (used by the GUI's pause control).
+  using ToolGate = std::function<std::optional<std::string>(const std::string& name)>;
 
   Server(ServerInfo info, ToolRegistry& tools, ResourceRegistry& resources, PromptRegistry& prompts);
 
@@ -41,6 +47,9 @@ public:
   void setNotificationSink(NotificationSink sink) { sink_ = std::move(sink); }
   void notify(const std::string& method, json params = json::object());
 
+  void setToolObserver(ToolObserver observer) { observer_ = std::move(observer); }
+  void setToolGate(ToolGate gate) { gate_ = std::move(gate); }
+
   json capabilities() const;
 
 private:
@@ -56,6 +65,8 @@ private:
   ResourceRegistry& resources_;
   PromptRegistry& prompts_;
   NotificationSink sink_;
+  ToolObserver observer_;
+  ToolGate gate_;
   bool initialized_ = false;
   std::string protocolVersion_;
 };

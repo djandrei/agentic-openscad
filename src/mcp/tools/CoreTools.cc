@@ -22,9 +22,12 @@ std::string serverInstructions()
   return "Agentic-OpenSCAD gives you control of an OpenSCAD instance. Work happens inside a "
          "project: a folder on disk opened with project_open, which creates "
          ".openscad-project.json and designates a main file (main.scad by default). All file "
-         "paths you pass are relative to the project root and must stay inside it. Use status "
-         "to see the open projects and the current mode (gui or headless). Call tools/list for "
-         "the full tool set; the OpenSCAD language itself is unchanged.";
+         "paths you pass are relative to the project root and must stay inside it. Files on disk "
+         "are the source of truth: write them with file_write (whole content or exact edits, with "
+         "baseVersion from file_read to detect concurrent changes); in GUI mode the user sees "
+         "every change in the editor. Use status to see the open projects, the run mode (gui or "
+         "headless) and whether the user paused you. Call tools/list for the full tool set; the "
+         "OpenSCAD language itself is unchanged.";
 }
 
 void registerCoreTools(ToolRegistry& tools, SessionManager& sessions)
@@ -98,6 +101,33 @@ void registerCoreTools(ToolRegistry& tools, SessionManager& sessions)
               info.update(session.status());
               return ToolResult::data(info);
             }});
+
+  tools.add(ToolDef{
+    "project_set",
+    "Change project settings in .openscad-project.json: the main file (the one previewed and "
+    "rendered by default) and autoPreview (GUI: preview after each write to the main file).",
+    json{{"type", "object"},
+         {"properties", json{{"project", projectArgSchema()},
+                             {"main", json{{"type", "string"},
+                                           {"description", "Main .scad file, relative to the root."}}},
+                             {"autoPreview", json{{"type", "boolean"}}}}},
+         {"additionalProperties", false}},
+    [&sessions](const json& args) {
+      auto& session = sessions.resolve(args);
+      auto& project = session.project();
+      if (args.contains("main")) {
+        const std::string main = args["main"].get<std::string>();
+        try {
+          project.config()["main"] = project.relative(project.resolve(main));
+        } catch (const std::invalid_argument& e) {
+          throw ToolError(e.what());
+        }
+      }
+      if (args.contains("autoPreview"))
+        project.config()["autoPreview"] = args["autoPreview"].get<bool>();
+      project.save();
+      return ToolResult::data(project.infoJson());
+    }});
 }
 
 }  // namespace mcp

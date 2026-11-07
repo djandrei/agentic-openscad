@@ -26,16 +26,18 @@ ToolResult ToolResult::text(const std::string& text)
 ToolResult ToolResult::data(const json& structured)
 {
   ToolResult r;
-  r.content.push_back(textContent(structured.dump(2)));
+  // Invalid UTF-8 (e.g. from a binary file) is replaced rather than thrown.
+  r.content.push_back(textContent(structured.dump(2, ' ', false, json::error_handler_t::replace)));
   r.structuredContent = structured;
   return r;
 }
 
-ToolResult ToolResult::error(const std::string& message)
+ToolResult ToolResult::error(const std::string& message, json data)
 {
   ToolResult r;
   r.content.push_back(textContent(message));
   r.isError = true;
+  if (!data.is_null()) r.structuredContent = std::move(data);
   return r;
 }
 

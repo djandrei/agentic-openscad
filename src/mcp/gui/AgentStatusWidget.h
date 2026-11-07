@@ -10,7 +10,7 @@ namespace mcp {
 class AgentBridge;
 
 // Status-bar control showing whether the MCP server is running and offering
-// start/stop, the Claude Code registration command and the port setting.
+// start/stop, pause, the Claude Code registration command and the port setting.
 class AgentStatusWidget : public QToolButton
 {
   Q_OBJECT
@@ -28,6 +28,7 @@ private:
   AgentBridge *bridge_;
   QMenu *menu_;
   QAction *toggleAction_;
+  QAction *pauseAction_;
   QAction *copyCommandAction_;
   QAction *copyTokenAction_;
   QAction *portAction_;

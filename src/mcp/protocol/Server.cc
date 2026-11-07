@@ -1,6 +1,7 @@
 #include "mcp/protocol/Server.h"
 
 #include <algorithm>
+#include <chrono>
 #include <exception>
 #include <optional>
 #include <string>
@@ -158,13 +159,26 @@ json Server::onToolsCall(const json& params)
     fail(jsonrpc::kInvalidParams, "Invalid arguments for tool '" + name + "': " + *err);
   }
 
-  try {
-    return tool->handler(args).toJson();
-  } catch (const ToolError& e) {
-    return ToolResult::error(e.what()).toJson();
-  } catch (const std::exception& e) {
-    return ToolResult::error(std::string("Tool '") + name + "' failed: " + e.what()).toJson();
+  const auto started = std::chrono::steady_clock::now();
+  ToolResult result;
+  if (gate_) {
+    if (auto blocked = gate_(name)) result = ToolResult::error(*blocked);
   }
+  if (!result.isError) {
+    try {
+      result = tool->handler(args);
+    } catch (const ToolError& e) {
+      result = ToolResult::error(e.what(), e.data());
+    } catch (const std::exception& e) {
+      result = ToolResult::error(std::string("Tool '") + name + "' failed: " + e.what());
+    }
+  }
+  if (observer_) {
+    const double millis =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    observer_(name, args, result, millis);
+  }
+  return result.toJson();
 }
 
 json Server::onResourcesRead(const json& params)
