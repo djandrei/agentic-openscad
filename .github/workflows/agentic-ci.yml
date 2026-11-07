@@ -46,6 +46,9 @@ jobs:
     - name: Unit tests
       run: ./build/OpenSCADUnitTests
 
+    - name: Agent end-to-end tests
+      run: cd build && ctest -R agentic --output-on-failure
+
   beautify:
     runs-on: ubuntu-24.04
     steps:

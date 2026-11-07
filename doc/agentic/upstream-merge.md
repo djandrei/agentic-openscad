@@ -32,11 +32,13 @@ points. Keep this list current whenever a hook is added or removed.
 | `src/openscad_gui.cc` | `mcp::AgentBridge::createIfConfigured(&app)` after the first `MainWindow` | 1 |
 | `src/utils/printutils.{h,cc}` | `add_output_listener` / `remove_output_listener` and one call in `PRINT_NOCACHE` (structured message capture) | 3 |
 | `src/core/parsersettings.{h,cc}` | `add_librarydir_front` / `remove_librarydir` (project library folders on the search path) | 6 |
+| `CMakeLists.txt` | `add_subdirectory(tests/agentic)` under `ENABLE_MCP` after the tests subdirectory | 8 |
+| `README.md` | the "Agentic-OpenSCAD" section at the top | 8 |
 | `src/gui/parameter/ParameterWidget.{h,cc}` | public `hasParameters`, `currentValues`, `setParameterValues`, `selectPreset`, `savePreset`, `presetNames` (customizer access for the agent) | 5 |
 
-All hooks are wrapped in `#ifdef ENABLE_MCP`. Later stages will add hooks in
-`src/gui/MainWindow.*` and `src/gui/TabManager.*`; each must be listed here
-when added.
+Source hooks are wrapped in `#ifdef ENABLE_MCP`; the CMake ones in
+`if(ENABLE_MCP)`. `src/gui/MainWindow.*` and `src/gui/TabManager.*` needed no
+changes: the bridge uses their public API.
 
 ## Merge procedure
 

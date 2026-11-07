@@ -292,6 +292,9 @@ def run_scenario(client, project_dir, expect_mode=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--stdio", nargs="+", metavar="CMD", help="openscad binary (and extra args) to spawn with --mcp-stdio")
+    parser.add_argument("--launch", metavar="BIN", help="spawn BIN as an HTTP MCP server on a free port and connect to it")
+    parser.add_argument("--launch-mode", choices=["gui", "headless"], default="gui",
+                        help="with --launch: open the GUI (needs a display) or serve headless")
     parser.add_argument("--url", help="HTTP MCP endpoint of a running instance")
     parser.add_argument("--token", default="", help="bearer token for --url")
     parser.add_argument("--project", help="project folder (a temporary one is created when omitted)")
@@ -301,18 +304,55 @@ def main():
     project_dir = args.project or tempfile.mkdtemp(prefix="agentic-e2e-")
     os.makedirs(project_dir, exist_ok=True)
 
+    launched = None
     if args.stdio:
         client = StdioClient(args.stdio + ["--mcp-stdio"])
+    elif args.launch:
+        launched, client = launch_http_server(args.launch, args.launch_mode, project_dir)
+        if not args.expect_mode:
+            args.expect_mode = args.launch_mode
     elif args.url:
         client = HttpClient(args.url, args.token)
     else:
-        parser.error("one of --stdio or --url is required")
+        parser.error("one of --stdio, --launch or --url is required")
 
     try:
         ok = run_scenario(client, project_dir, args.expect_mode)
     finally:
         client.close()
+        if launched:
+            launched.terminate()
+            try:
+                launched.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                launched.kill()
     sys.exit(0 if ok else 1)
+
+
+def launch_http_server(binary, mode, project_dir):
+    import secrets
+    import socket
+    import time
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    token = secrets.token_hex(8)
+    command = [binary, "--mcp-port", str(port), "--mcp-token", token, "--project", project_dir]
+    if mode == "headless":
+        command.append("--mcp-headless")
+    proc = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    client = HttpClient(f"http://127.0.0.1:{port}/mcp", token)
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            raise McpError("server exited early:\n" + proc.stderr.read())
+        try:
+            client.request("ping")
+            return proc, client
+        except Exception:  # noqa: BLE001 - not up yet
+            time.sleep(0.5)
+    proc.kill()
+    raise McpError("server did not start listening within 90 s")
 
 
 if __name__ == "__main__":

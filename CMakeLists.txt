@@ -1869,6 +1869,9 @@ if(ENABLE_TESTS)
   endif()
 
   add_subdirectory(tests)
+  if(ENABLE_MCP)
+    add_subdirectory(tests/agentic)
+  endif()
 endif()
 
 if(OFFLINE_DOCS)

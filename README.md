@@ -4,6 +4,18 @@
 
 [![Visit our IRC channel](https://kiwiirc.com/buttons/irc.libera.chat/openscad.png)](https://kiwiirc.com/client/irc.libera.chat/#openscad)
 
+# Agentic-OpenSCAD
+
+This fork adds a [Model Context Protocol](https://modelcontextprotocol.io)
+server so AI agents can drive OpenSCAD: write files, get errors and warnings
+with line numbers, preview and render, look at the model from any angle,
+measure the geometry, use the customizer, install libraries and read the
+documentation. Run `openscad --mcp-stdio --project DIR` (headless, spawned by
+the agent's client) or `openscad --mcp-port 7645 --project DIR` (watch the
+agent in the GUI). See [doc/agentic/README.md](doc/agentic/README.md),
+[doc/agentic/client-setup.md](doc/agentic/client-setup.md) and the
+[tool reference](doc/agentic/tools.md).
+
 # What is OpenSCAD?
 <p><a href="https://opencollective.com/openscad/donate"><img align="right" src="https://opencollective.com/openscad/donate/button@2x.png?color=white" width="200"/></a>
 

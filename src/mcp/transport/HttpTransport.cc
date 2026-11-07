@@ -15,6 +15,10 @@
 #include <utility>
 
 #include <boost/asio.hpp>
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <sys/time.h>
+#endif
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
@@ -105,6 +109,30 @@ public:
 
   void serve(HttpTransport *owner, tcp::socket socket)
   {
+    // Read/write timeouts so a stalled client cannot block the single
+    // serving thread for ever.
+#ifdef _WIN32
+    const DWORD timeoutMs = 30000;
+    setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO,
+               reinterpret_cast<const char *>(&timeoutMs), sizeof(timeoutMs));
+    setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO,
+               reinterpret_cast<const char *>(&timeoutMs), sizeof(timeoutMs));
+#else
+    const timeval timeout{30, 0};
+    setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+#endif
+    try {
+      serveRequests(owner, socket);
+    } catch (const std::exception&) {
+      // Malformed request or broken connection: drop it, keep accepting.
+    }
+    beast::error_code ec;
+    socket.shutdown(tcp::socket::shutdown_both, ec);
+  }
+
+  void serveRequests(HttpTransport *owner, tcp::socket& socket)
+  {
     beast::error_code ec;
     for (;;) {
       beast::flat_buffer buffer;
@@ -131,7 +159,6 @@ public:
       http::write(socket, res, ec);
       if (ec || !req.keep_alive()) break;
     }
-    socket.shutdown(tcp::socket::shutdown_both, ec);
   }
 };
 
