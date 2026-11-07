@@ -46,10 +46,9 @@ list(APPEND CORE_SOURCES
 
 if(NOT HEADLESS)
   list(APPEND CORE_SOURCES
-    src/mcp/gui/AgentBridge.cc
-    src/mcp/gui/AgentDock.cc
-    src/mcp/gui/AgentStatusWidget.cc
-    src/mcp/gui/GuiSession.cc
+    src/mcp/viewer/ViewerApp.cc
+    src/mcp/viewer/ViewerBridge.cc
+    src/mcp/viewer/ViewerWindow.cc
   )
 endif()
 

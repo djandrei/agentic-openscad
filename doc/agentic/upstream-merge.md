@@ -27,18 +27,17 @@ points. Keep this list current whenever a hook is added or removed.
 | `src/openscad.cc` | includes of `mcp/Options.h` and `mcp/headless/HeadlessMain.h` | 1 |
 | `src/openscad.cc` | `--mcp-stdio`, `--mcp-port`, `--mcp-headless`, `--mcp-token`, `--mcp-token-file`, `--project` options after the `run-all-gui-tests` block | 1 |
 | `src/openscad.cc` | `mcp::Options` filled and `mcp::runHeadless()` dispatched before the `cmdlinemode` decision | 1 |
-| `src/openscad_gui.cc` | include of `mcp/gui/AgentBridge.h` | 1 |
-| `src/openscad_gui.cc` | launching screen suppressed when `--mcp-port`/`--project` given | 1 |
-| `src/openscad_gui.cc` | `mcp::AgentBridge::createIfConfigured(&app)` after the first `MainWindow` | 1 |
+| `src/openscad.cc` | `--classic` option; GUI branch runs `mcp::runViewerApp()` unless `--classic`; no-display branch runs headless | V0 |
 | `src/utils/printutils.{h,cc}` | `add_output_listener` / `remove_output_listener` and one call in `PRINT_NOCACHE` (structured message capture) | 3 |
 | `src/core/parsersettings.{h,cc}` | `add_librarydir_front` / `remove_librarydir` (project library folders on the search path) | 6 |
 | `CMakeLists.txt` | `add_subdirectory(tests/agentic)` under `ENABLE_MCP` after the tests subdirectory | 8 |
 | `README.md` | the "Agentic-OpenSCAD" section at the top | 8 |
-| `src/gui/parameter/ParameterWidget.{h,cc}` | public `hasParameters`, `currentValues`, `setParameterValues`, `selectPreset`, `savePreset`, `presetNames` (customizer access for the agent) | 5 |
 
 Source hooks are wrapped in `#ifdef ENABLE_MCP`; the CMake ones in
-`if(ENABLE_MCP)`. `src/gui/MainWindow.*` and `src/gui/TabManager.*` needed no
-changes: the bridge uses their public API.
+`if(ENABLE_MCP)`. Since Stage V0 the classic GUI (`openscad_gui.cc`,
+`MainWindow`, `TabManager`, `ParameterWidget`) is untouched and only
+reachable with `--classic`; agent mode has its own window in
+`src/mcp/viewer/`.
 
 ## Merge procedure
 

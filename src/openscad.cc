@@ -110,6 +110,9 @@
 #ifdef ENABLE_MCP
 #include "mcp/Options.h"
 #include "mcp/headless/HeadlessMain.h"
+#ifndef OPENSCAD_NOGUI
+#include "mcp/viewer/ViewerApp.h"
+#endif
 #endif
 #include "openscad_gui.h"
 #include "openscad_mimalloc.h"
@@ -956,7 +959,8 @@ int openscad_main(int argc, char **argv)
     ("mcp-headless", "with --mcp-port: serve without opening the GUI")
     ("mcp-token", po::value<std::string>(), "=token bearer token for the MCP HTTP transport (random when omitted)")
     ("mcp-token-file", po::value<std::string>(), "=file write the MCP HTTP bearer token to this file")
-    ("project", po::value<std::string>(), "=dir open this folder as the agent project");
+    ("project", po::value<std::string>(), "=dir open this folder as the agent project")
+    ("classic", "open the classic OpenSCAD GUI instead of the agent viewer (debugging)");
   // clang-format on
 #endif
 
@@ -1178,8 +1182,6 @@ int openscad_main(int argc, char **argv)
   bool runMcpHeadless = mcpOptions.stdio || (mcpOptions.port > 0 && mcpOptions.headless);
 #ifdef OPENSCAD_NOGUI
   if (mcpOptions.port > 0) runMcpHeadless = true;
-#else
-  if (mcpOptions.port > 0 && !useGUI()) runMcpHeadless = true;
 #endif
   if (runMcpHeadless) {
     parser_init();
@@ -1244,16 +1246,33 @@ int openscad_main(int argc, char **argv)
     if (vm.count("export-format")) {
       LOG("Ignoring --export-format option");
     }
-    std::string gui_test = "none";
-    if (vm.count("run-all-gui-tests")) {
-      gui_test = "all";
+#ifdef ENABLE_MCP
+    if (!vm.count("classic")) {
+      // Agent mode is the default: the viewer window plus the MCP server.
+      rc = mcp::runViewerApp(argc, argv, mcp::Options::global(), inputFiles);
+    } else
+#endif
+    {
+      std::string gui_test = "none";
+      if (vm.count("run-all-gui-tests")) {
+        gui_test = "all";
+      }
+      auto reset_window_settings = vm.count("reset-window-settings") > 0;
+      rc = gui(inputFiles, original_path, argc, argv, gui_test, reset_window_settings);
     }
-    auto reset_window_settings = vm.count("reset-window-settings") > 0;
-    rc = gui(inputFiles, original_path, argc, argv, gui_test, reset_window_settings);
 #endif
   } else {
+#ifdef ENABLE_MCP
+    // No display: serve agents headless over HTTP instead of failing.
+    mcp::Options headless = mcp::Options::global();
+    if (headless.port <= 0) headless.port = mcp::Options::kDefaultPort;
+    parser_init();
+    localization_init();
+    return mcp::runHeadless(headless);
+#else
     LOG("Requested GUI mode but can't open display!\n");
     return 1;
+#endif
   }
 
   return rc;

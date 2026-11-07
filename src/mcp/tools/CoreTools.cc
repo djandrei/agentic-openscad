@@ -55,6 +55,7 @@ void registerCoreTools(ToolRegistry& tools, SessionManager& sessions)
         json entry = session->project().infoJson();
         entry.erase("config");
         entry.update(session->status());
+        entry["mode"] = sessions.mode();
         projects.push_back(entry);
       }
       json result{{"mode", sessions.mode()}, {"projects", projects}};
@@ -76,6 +77,7 @@ void registerCoreTools(ToolRegistry& tools, SessionManager& sessions)
       auto& session = sessions.open(args["path"].get<std::string>());
       json info = session.project().infoJson();
       info.update(session.status());
+      info["mode"] = sessions.mode();
       return ToolResult::data(info);
     }});
 
@@ -102,6 +104,7 @@ void registerCoreTools(ToolRegistry& tools, SessionManager& sessions)
               auto& session = sessions.resolve(args);
               json info = session.project().infoJson();
               info.update(session.status());
+              info["mode"] = sessions.mode();
               return ToolResult::data(info);
             }});
 

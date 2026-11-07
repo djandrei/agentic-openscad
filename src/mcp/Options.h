@@ -8,6 +8,8 @@ namespace mcp {
 // read by the headless entry point or, in GUI mode, by AgentBridge through
 // global().
 struct Options {
+  static constexpr int kDefaultPort = 7645;
+
   bool stdio = false;     // --mcp-stdio
   int port = 0;           // --mcp-port
   bool headless = false;  // --mcp-headless (with --mcp-port: no GUI)

@@ -162,8 +162,6 @@ def run_scenario(client, project_dir, expect_mode=None):
 
     editor = s.tool_ok("editor_get", project=project, path="main.scad")
     s.check(editor["text"] == "// e2e\ncube(20);\n", "editor_get shows the edited text")
-    if expect_mode == "gui":
-        s.check(editor["source"] == "editor" and editor["unsaved"] is False, "GUI editor tab reflects the write")
 
     listing = s.tool_ok("file_list", project=project)
     s.check(any(f["path"] == "main.scad" for f in listing["files"]), "file_list contains main.scad")
@@ -298,7 +296,7 @@ def main():
     parser.add_argument("--url", help="HTTP MCP endpoint of a running instance")
     parser.add_argument("--token", default="", help="bearer token for --url")
     parser.add_argument("--project", help="project folder (a temporary one is created when omitted)")
-    parser.add_argument("--expect-mode", choices=["gui", "headless"], help="assert the session mode")
+    parser.add_argument("--expect-mode", choices=["viewer", "headless"], help="assert the session mode")
     args = parser.parse_args()
 
     project_dir = args.project or tempfile.mkdtemp(prefix="agentic-e2e-")
@@ -310,7 +308,7 @@ def main():
     elif args.launch:
         launched, client = launch_http_server(args.launch, args.launch_mode, project_dir)
         if not args.expect_mode:
-            args.expect_mode = args.launch_mode
+            args.expect_mode = "viewer" if args.launch_mode == "gui" else "headless"
     elif args.url:
         client = HttpClient(args.url, args.token)
     else:

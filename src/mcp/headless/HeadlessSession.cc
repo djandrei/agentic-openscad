@@ -23,8 +23,7 @@ HeadlessSession::HeadlessSession(std::shared_ptr<Project> project) : ProjectSess
 
 nlohmann::json HeadlessSession::status() const
 {
-  return nlohmann::json{{"mode", "headless"},
-                        {"busy", false},
+  return nlohmann::json{{"busy", false},
                         {"paused", false},
                         {"hasGeometry", last_.geometry != nullptr},
                         {"lastFile", lastFile_}};

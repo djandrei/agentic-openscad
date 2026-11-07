@@ -63,18 +63,6 @@ public:
   bool childHasFocus();
   bool isModified() const { return modified; }
 
-  // Agentic-OpenSCAD: programmatic access used by the agent bridge.
-  bool hasParameters() const { return !parameters.empty(); }
-  ParameterSet currentValues();
-  // Sets values (creating/selecting the "Agent" preset when the design
-  // defaults are selected, as a user edit would) and refreshes the widgets.
-  void setParameterValues(const ParameterSet& values);
-  // Selects a preset by name ("" = design defaults). Returns false if unknown.
-  bool selectPreset(const std::string& name);
-  // Creates or replaces a preset from the current values and selects it.
-  void savePreset(const std::string& name);
-  std::vector<std::string> presetNames() const;
-
 public slots:
   void setModified(bool modified = true);
   void setFontFamilySize(const QString& fontfamily, uint fontsize);
