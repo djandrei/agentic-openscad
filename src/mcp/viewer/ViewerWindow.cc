@@ -1,5 +1,6 @@
 #include "mcp/viewer/ViewerWindow.h"
 
+#include <QAction>
 #include <QCloseEvent>
 #include <QColor>
 #include <QDockWidget>
