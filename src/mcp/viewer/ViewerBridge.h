@@ -58,6 +58,8 @@ private:
   };
 
   void execute(const std::function<void()>& fn);
+  // Runs one tool call on the GUI thread (see the definition for the GL context handling).
+  void runTool(const std::function<void()>& fn);
   void pump();
 
   Options options_;

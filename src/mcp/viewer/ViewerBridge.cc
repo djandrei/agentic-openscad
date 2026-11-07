@@ -1,6 +1,7 @@
 #include "mcp/viewer/ViewerBridge.h"
 
 #include <QMetaObject>
+#include <QOpenGLContext>
 #include <QThread>
 
 #include <chrono>
@@ -12,6 +13,9 @@
 #include <optional>
 #include <string>
 
+#ifdef ENABLE_EGL
+#include "glad/egl.h"
+#endif
 #include "gui/QSettingsCached.h"
 #include "mcp/BuildInfo.h"
 #include "mcp/session/EngineSession.h"
@@ -170,10 +174,29 @@ void ViewerBridge::setPaused(bool paused)
   emit stateChanged();
 }
 
+// Tools run on the GUI thread, where the viewer's widget context is usually
+// current. A capture creates its own offscreen EGL context, and with Mesa a
+// thread cannot hold a GLX context and an EGL context at once: eglMakeCurrent
+// fails while the widget's context is current, and once the capture's context
+// is destroyed Qt cannot make the widget's current again. So the widget's
+// context is released before a tool runs and the thread's EGL binding after
+// it; Qt binds its context again on the next paint.
+void ViewerBridge::runTool(const std::function<void()>& fn)
+{
+  if (auto *current = QOpenGLContext::currentContext()) current->doneCurrent();
+  fn();
+#ifdef ENABLE_EGL
+  // The EGL entry points are glad pointers, loaded when an offscreen context was first created.
+  if (eglGetCurrentContext && eglReleaseThread && eglGetCurrentContext() != EGL_NO_CONTEXT) {
+    eglReleaseThread();
+  }
+#endif
+}
+
 void ViewerBridge::execute(const std::function<void()>& fn)
 {
   if (QThread::currentThread() == thread()) {
-    fn();
+    runTool(fn);
     return;
   }
   auto task = std::make_shared<Task>();
@@ -205,7 +228,7 @@ void ViewerBridge::pump()
     tasks_.pop_front();
     task->running = true;
   }
-  task->fn();
+  runTool(task->fn);
   task->done.set_value();
   const std::lock_guard<std::mutex> lock(tasksMutex_);
   if (!tasks_.empty()) QMetaObject::invokeMethod(this, [this] { pump(); }, Qt::QueuedConnection);
