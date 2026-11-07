@@ -1,0 +1,33 @@
+Agentic-OpenSCAD test baseline (Stage 0)
+
+Date:        2026-11-06
+Commit:      34577bf70 (upstream a81e8630 + ENABLE_MCP skeleton; no behaviour change)
+Machine:     Ubuntu 24.04.5, GCC 13.3.0, Qt 6.4.2, CGAL 5.6, Boost 1.83,
+             Manifold v3.5.4 (submodule), OpenCSG 1.5.0, Catch2 3.4
+GL:          llvmpipe (LLVM 20.1.2, 256 bits) under Xvfb; offscreen context default EGL
+Configure:   cmake -B build -G Ninja -DEXPERIMENTAL=1 -DCMAKE_BUILD_TYPE=Release
+Test cmd:    xvfb-run -a -s "-screen 0 1280x1024x24" ctest -j$(nproc) --output-on-failure
+Full log:    build/ctest-baseline.log (not committed)
+
+Unit tests (./build/OpenSCADUnitTests): all passed, 63 test cases, 75157 assertions.
+
+Regression tests (default configuration):
+  2731 run, 2730 passed, 1 failed, 180 s wall time.
+  Disabled tests (reported "Not Run (Disabled)") are upstream's choice and not counted.
+
+Failed:
+  render-cgal_difference-tests
+    Cause: "Unable to open a connection to the X server. DISPLAY=:99 /
+    Can't create OffscreenView: Unable to obtain GL Context." A transient
+    Xvfb connection failure under high parallelism, not a geometry or image
+    mismatch. Passed on the first re-run:
+      ctest -R '^render-cgal_difference-tests$' --repeat until-pass:3
+
+Known environment caveats:
+  - PNG-comparison tests depend on llvmpipe; a different GL stack may produce
+    other, unrelated image differences.
+  - Any X-connection failure like the one above should be retried before being
+    treated as a regression.
+
+Not run in the baseline: ctest -C Heavy / Examples / Bugs / All, GUI tests
+(-DENABLE_GUI_TESTS was OFF), Python engine (ENABLE_PYTHON OFF).
