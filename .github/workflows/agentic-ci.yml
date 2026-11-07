@@ -1,0 +1,60 @@
+name: Agentic CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [ gui, headless ]
+
+    runs-on: ubuntu-24.04
+    name: ${{ matrix.config }}
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        submodules: 'recursive'
+
+    - name: Install dependencies
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        TZ: Etc/UTC
+      run: |
+        which sudo || apt install -y sudo
+        sudo ./scripts/uni-get-dependencies.sh qt6
+        sudo apt-get install -y ninja-build
+
+    - name: Configure (gui)
+      if: matrix.config == 'gui'
+      run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_UNITY_BUILD=OFF -DEXPERIMENTAL=ON -DENABLE_MCP=ON
+
+    - name: Configure (headless)
+      if: matrix.config == 'headless'
+      run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_UNITY_BUILD=OFF -DEXPERIMENTAL=ON -DENABLE_MCP=ON -DHEADLESS=ON
+
+    - name: Build
+      # Runners have insufficient memory for more parallelism (CGAL translation units).
+      run: cmake --build build -j2
+
+    - name: Unit tests
+      run: ./build/OpenSCADUnitTests
+
+  beautify:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+
+    - name: Format check
+      run: ./scripts/beautify.sh --check
