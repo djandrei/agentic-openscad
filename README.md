@@ -19,6 +19,12 @@ client. The classic GUI is kept behind `--classic`. See
 [doc/agentic/client-setup.md](doc/agentic/client-setup.md) and the
 [tool reference](doc/agentic/tools.md).
 
+![The agent viewer: file tree, 3D view, messages, activity log and change stream around a swivel caster assembly](doc/agentic/images/viewer.png)
+
+*The viewer while an agent works on a swivel caster: each part in its own
+file under `parts/` and `hardware/`, the assembly in `main.scad`, the tool
+calls in the activity log, and the exported STL under `out/`.*
+
 # What is OpenSCAD?
 <p><a href="https://opencollective.com/openscad/donate"><img align="right" src="https://opencollective.com/openscad/donate/button@2x.png?color=white" width="200"/></a>
 
