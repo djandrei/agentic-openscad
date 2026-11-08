@@ -57,6 +57,9 @@ Then run the end-to-end agent test (Stage 8) before pushing.
 
 - Do not modify or delete upstream workflows under `.github/workflows/`; disable
   the ones you do not want in the fork's GitHub Actions settings instead.
+- `tests/agentic/CMakeLists.txt` disables `render-cgal_example017` (upstream
+  issue #5158, a CGAL face lost in non-experimental builds that shows up in the
+  fork's CI binary). After a merge, drop that block if upstream fixed the issue.
 - The upstream experimental AI Chat dock (`src/core/AIService.*`, `src/gui/ai/`)
   is left as is.
 - Prefer adding a new file over editing an upstream one. When an upstream edit is
