@@ -5,6 +5,7 @@
 #include <string>
 
 #include "mcp/protocol/Server.h"
+#include "mcp/transport/TokenStore.h"
 #include "mcp/transport/Transport.h"
 
 namespace mcp {
@@ -12,7 +13,10 @@ namespace mcp {
 struct HttpOptions {
   std::string bindAddress = "127.0.0.1";
   unsigned short port = 0;  // 0 = pick a free port; see HttpTransport::port()
-  std::string token;        // empty = no authentication (tests only)
+  std::string token;        // empty = no authentication (tests only); ignored when `tokens` is set
+  // When set, requests must carry one of the store's tokens (an empty store
+  // rejects every request). The viewer uses this to add and revoke tokens.
+  std::shared_ptr<TokenStore> tokens;
   std::string path = "/mcp";
 };
 

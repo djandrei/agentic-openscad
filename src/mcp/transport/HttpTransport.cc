@@ -237,7 +237,17 @@ HttpTransport::Response HttpTransport::handle(const std::string& method, const s
     return errorResponse(403, "Origin not allowed");
   }
 
-  if (!impl_->options.token.empty()) {
+  if (impl_->options.tokens) {
+    const std::string prefix = "Bearer ";
+    const auto auth = headers.find("authorization");
+    const bool ok = auth != headers.end() && auth->second.compare(0, prefix.size(), prefix) == 0 &&
+                    impl_->options.tokens->authenticate(auth->second.substr(prefix.size()));
+    if (!ok) {
+      Response r = errorResponse(401, "Unauthorized: expected Authorization: Bearer <token>");
+      r.headers["WWW-Authenticate"] = "Bearer";
+      return r;
+    }
+  } else if (!impl_->options.token.empty()) {
     const auto auth = headers.find("authorization");
     if (auth == headers.end() || auth->second != "Bearer " + impl_->options.token) {
       Response r = errorResponse(401, "Unauthorized: expected Authorization: Bearer <token>");

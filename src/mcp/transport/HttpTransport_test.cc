@@ -125,6 +125,38 @@ TEST_CASE("HTTP transport serves requests on a loopback socket", "[mcp][http]")
   REQUIRE_FALSE(transport.running());
 }
 
+TEST_CASE("HTTP transport authenticates against a token store", "[mcp][http][tokens]")
+{
+  Fixture f;
+  auto store = std::make_shared<mcp::TokenStore>();
+  f.options.tokens = store;
+  mcp::HttpTransport transport(f.server, f.options);
+  auto bearer = [](const std::string& token) {
+    return std::map<std::string, std::string>{{"authorization", "Bearer " + token}};
+  };
+
+  const auto a = store->add("a");
+  REQUIRE(transport.handle("POST", "/mcp", bearer(a.value), kInitialize).status == 200);
+  // The store replaces options.token entirely.
+  REQUIRE(transport.handle("POST", "/mcp", f.authHeaders(), kInitialize).status == 401);
+  REQUIRE(transport.handle("POST", "/mcp", {{"authorization", a.value}}, kInitialize).status == 401);
+
+  const auto b = store->add("b");
+  REQUIRE(transport.handle("POST", "/mcp", bearer(b.value), kInitialize).status == 200);
+  REQUIRE(transport.handle("POST", "/mcp", bearer(a.value), kInitialize).status == 200);
+
+  store->remove(a.id);
+  auto revoked = transport.handle("POST", "/mcp", bearer(a.value), kInitialize);
+  REQUIRE(revoked.status == 401);
+  REQUIRE(revoked.headers.at("WWW-Authenticate") == "Bearer");
+  REQUIRE(transport.handle("POST", "/mcp", bearer(b.value), kInitialize).status == 200);
+
+  // An empty store rejects everything; it never disables authentication.
+  store->remove(b.id);
+  REQUIRE(transport.handle("POST", "/mcp", bearer(b.value), kInitialize).status == 401);
+  REQUIRE(transport.handle("POST", "/mcp", {}, kInitialize).status == 401);
+}
+
 TEST_CASE("generateToken yields distinct hex strings", "[mcp][http]")
 {
   const auto a = mcp::generateToken();

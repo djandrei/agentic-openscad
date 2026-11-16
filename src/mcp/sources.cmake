@@ -42,6 +42,7 @@ list(APPEND CORE_SOURCES
   src/mcp/tools/ViewTools.cc
   src/mcp/transport/HttpTransport.cc
   src/mcp/transport/StdioTransport.cc
+  src/mcp/transport/TokenStore.cc
 )
 
 if(NOT HEADLESS)
