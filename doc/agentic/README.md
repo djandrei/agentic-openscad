@@ -101,8 +101,9 @@ Hooks into upstream files are deliberately few and listed in
 
 The agent is in control: there are no confirmation prompts, only the
 Pause button. The server binds to the loopback interface only, the HTTP
-transport requires a per-session token and rejects foreign `Origin`
-headers, file tools cannot leave the project folder (symlinks are
+transport requires a bearer token (one per start; the viewer can add and
+revoke more for the running session, none are saved) and rejects foreign
+`Origin` headers, file tools cannot leave the project folder (symlinks are
 resolved), exports land inside the project, and there is no shell tool.
 Library installation downloads archives from the configured registries; a
 `git clone` fallback runs without a shell.

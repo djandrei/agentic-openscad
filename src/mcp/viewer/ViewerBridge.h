@@ -10,15 +10,18 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "mcp/Options.h"
 #include "mcp/protocol/Registry.h"
 #include "mcp/protocol/Server.h"
 #include "mcp/session/SessionManager.h"
 #include "mcp/transport/HttpTransport.h"
+#include "mcp/transport/TokenStore.h"
 
 namespace mcp {
 
+class TokenDialog;
 class ViewerWindow;
 
 // Hosts the MCP server inside the viewer application: registries, server,
@@ -37,8 +40,15 @@ public:
   void stop();
   bool running() const;
   QString url() const;
-  QString token() const { return QString::fromStdString(token_); }
+  // The command for the startup token (printed on stderr at start).
   QString claudeCodeCommand() const;
+  QString claudeCodeCommand(const QString& token) const;
+
+  // Session-only access tokens (nothing is persisted). Changes emit
+  // stateChanged so the status bar can flag an empty list.
+  std::vector<TokenEntry> tokens() const { return tokens_->list(); }
+  TokenEntry addToken(const QString& label);
+  void removeToken(int id);
 
   bool paused() const { return paused_; }
   void setPaused(bool paused);
@@ -70,7 +80,9 @@ private:
   SessionManager sessions_;
   std::unique_ptr<Server> server_;
   std::unique_ptr<HttpTransport> transport_;
-  std::string token_;
+  std::shared_ptr<TokenStore> tokens_ = std::make_shared<TokenStore>();
+  std::string startupToken_;  // for --mcp-token-file and the stderr lines
+  TokenDialog *tokenDialog_ = nullptr;
   bool paused_ = false;
   std::atomic<bool> stopping_{false};
   std::mutex tasksMutex_;

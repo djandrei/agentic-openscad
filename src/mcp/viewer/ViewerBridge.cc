@@ -27,6 +27,7 @@
 #include "mcp/tools/LibraryTools.h"
 #include "mcp/tools/ParamTools.h"
 #include "mcp/tools/ViewTools.h"
+#include "mcp/viewer/TokenDialog.h"
 #include "mcp/viewer/ViewerWindow.h"
 #include "version.h"
 
@@ -87,15 +88,28 @@ ViewerBridge::ViewerBridge(Options options, ViewerWindow *window)
     }
     return std::nullopt;
   });
-  token_ = options_.token.empty() ? generateToken() : options_.token;
+  startupToken_ = options_.token.empty() ? generateToken() : options_.token;
+  tokens_->addValue(startupToken_, "startup");
   sessions_.setCurrentChanged(
     [this](ProjectSession *session) { window_->showSession(dynamic_cast<EngineSession *>(session)); });
   connect(this, &ViewerBridge::stateChanged, this, [this] {
-    window_->setServerStatus(running() ? tr("MCP %1").arg(url()) : tr("server stopped"));
+    QString status = tr("server stopped");
+    if (running()) {
+      status =
+        tokens_->list().empty() ? tr("MCP %1 — no access tokens").arg(url()) : tr("MCP %1").arg(url());
+    }
+    window_->setServerStatus(status);
+    window_->setTokensEnabled(running());
     window_->setPausedIndicator(paused_);
   });
   connect(this, &ViewerBridge::toolCalled, window_, &ViewerWindow::appendToolCall);
   connect(window_, &ViewerWindow::pauseToggled, this, &ViewerBridge::setPaused);
+  connect(window_, &ViewerWindow::tokensRequested, this, [this] {
+    if (!tokenDialog_) tokenDialog_ = new TokenDialog(*this, window_);
+    tokenDialog_->show();
+    tokenDialog_->raise();
+    tokenDialog_->activateWindow();
+  });
 }
 
 ViewerBridge::~ViewerBridge()
@@ -111,7 +125,7 @@ bool ViewerBridge::start(std::string *error)
                      ? options_.port
                      : QSettingsCached().value("agent/port", Options::kDefaultPort).toInt();
   httpOptions.port = static_cast<unsigned short>(port);
-  httpOptions.token = token_;
+  httpOptions.tokens = tokens_;
   stopping_ = false;
   transport_ = std::make_unique<HttpTransport>(*server_, httpOptions,
                                                [this](const std::function<void()>& fn) { execute(fn); });
@@ -124,14 +138,15 @@ bool ViewerBridge::start(std::string *error)
   }
   if (!options_.tokenFile.empty()) {
     std::ofstream out(options_.tokenFile, std::ios::trunc);
-    out << token_ << '\n';
+    out << startupToken_ << '\n';
     out.close();
     std::error_code ec;
     fs::permissions(options_.tokenFile, fs::perms::owner_read | fs::perms::owner_write,
                     fs::perm_options::replace, ec);
   }
   std::cerr << "agentic-openscad: MCP server listening on " << transport_->url() << "\n";
-  if (options_.tokenFile.empty()) std::cerr << "agentic-openscad: bearer token " << token_ << "\n";
+  if (options_.tokenFile.empty())
+    std::cerr << "agentic-openscad: bearer token " << startupToken_ << "\n";
   std::cerr << "agentic-openscad: " << claudeCodeCommand().toStdString() << "\n";
   emit stateChanged();
   return true;
@@ -158,10 +173,28 @@ QString ViewerBridge::url() const
 
 QString ViewerBridge::claudeCodeCommand() const
 {
+  return claudeCodeCommand(QString::fromStdString(startupToken_));
+}
+
+QString ViewerBridge::claudeCodeCommand(const QString& token) const
+{
   if (!running()) return QString();
   return QStringLiteral(
            "claude mcp add --transport http openscad %1 --header \"Authorization: Bearer %2\"")
-    .arg(url(), token());
+    .arg(url(), token);
+}
+
+TokenEntry ViewerBridge::addToken(const QString& label)
+{
+  TokenEntry entry = tokens_->add(label.trimmed().toStdString());
+  emit stateChanged();
+  return entry;
+}
+
+void ViewerBridge::removeToken(int id)
+{
+  tokens_->remove(id);
+  emit stateChanged();
 }
 
 void ViewerBridge::setPaused(bool paused)

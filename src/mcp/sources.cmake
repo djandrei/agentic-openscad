@@ -47,6 +47,7 @@ list(APPEND CORE_SOURCES
 
 if(NOT HEADLESS)
   list(APPEND CORE_SOURCES
+    src/mcp/viewer/TokenDialog.cc
     src/mcp/viewer/ViewerApp.cc
     src/mcp/viewer/ViewerBridge.cc
     src/mcp/viewer/ViewerWindow.cc

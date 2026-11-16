@@ -28,6 +28,19 @@ start; `--mcp-token` fixes it, `--mcp-token-file` writes it to a file):
 claude mcp add --transport http openscad http://127.0.0.1:7645/mcp --header "Authorization: Bearer <token>"
 ```
 
+*Tokens…* next to the server URL in the status bar opens the access-token
+list. It starts with the startup token (labelled `startup`); *Add…* creates
+another one with an optional label, *Delete* revokes one (a client using it
+gets 401 from its next request), and the copy buttons put the token or the
+whole `claude mcp add` command on the clipboard. Values are masked unless
+*Show values* is checked; *Last used* is the time of the token's last
+accepted request. Tokens live only as long as the viewer: none are saved,
+and a restart starts again from a single startup token. Deleting every
+token is allowed (after a warning): the status bar then reads *no access
+tokens* and every request is refused until a token is added. The
+`--mcp-token-file` file always holds the startup token, even after it has
+been deleted.
+
 The viewer follows the project of the agent's last tool call. *Pause agent*
 in the status bar makes every tool call fail until resumed; the person may
 also orbit the 3D view with the mouse (the agent's camera remains the

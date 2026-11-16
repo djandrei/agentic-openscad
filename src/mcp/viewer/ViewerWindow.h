@@ -67,9 +67,12 @@ public slots:
   void setServerStatus(const QString& text);
   void appendToolCall(const QString& name, const QString& argsSummary, bool ok, double millis);
   void setPausedIndicator(bool paused);
+  // The Tokens… button next to the server URL; disabled while the server is stopped.
+  void setTokensEnabled(bool enabled);
 
 signals:
   void pauseToggled(bool paused);
+  void tokensRequested();
 
 private:
   static constexpr int kChangeMarker = 1;
@@ -161,6 +164,7 @@ private:
   QToolButton *pauseButton_;
   QLabel *statusLabel_;
   QLabel *serverLabel_;
+  QToolButton *tokensButton_;
   std::shared_ptr<Renderer> renderer_;
   QString lastCompile_;
 };

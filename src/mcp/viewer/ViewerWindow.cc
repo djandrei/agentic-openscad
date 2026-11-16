@@ -248,6 +248,13 @@ void ViewerWindow::buildUi()
   connect(viewOnlyButton_, &QToolButton::toggled, this, &ViewerWindow::setViewOnly);
   statusBar()->addPermanentWidget(viewOnlyButton_);
   statusBar()->addPermanentWidget(serverLabel_);
+
+  tokensButton_ = new QToolButton(this);
+  tokensButton_->setText(tr("Tokens…"));
+  tokensButton_->setToolTip(tr("Manage the access tokens MCP clients use to connect."));
+  tokensButton_->setEnabled(false);
+  connect(tokensButton_, &QToolButton::clicked, this, &ViewerWindow::tokensRequested);
+  statusBar()->addPermanentWidget(tokensButton_);
 }
 
 void ViewerWindow::setPanelAlert(PanelId id, bool error)
@@ -342,6 +349,11 @@ QDockWidget *ViewerWindow::addPanel(PanelId id, const char *objectName, const QS
 void ViewerWindow::setServerStatus(const QString& text)
 {
   serverLabel_->setText(text);
+}
+
+void ViewerWindow::setTokensEnabled(bool enabled)
+{
+  tokensButton_->setEnabled(enabled);
 }
 
 void ViewerWindow::setPausedIndicator(bool paused)
